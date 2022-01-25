@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "target": "es2020",
+    "moduleResolution": "node",
+    "module": "commonjs",
+    "outDir": "./",
+    "strict": true,
+    "declaration": true,
+    "skipLibCheck": true
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules"]
+}
