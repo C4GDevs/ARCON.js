@@ -30,6 +30,8 @@ class Connection extends EventEmitter {
 
     this._socket.on('connect', this._login);
     this._socket.on('message', this._receivePacket);
+
+    setInterval(this._heartbeat, 30_000);
   }
 
   public get ip(): string {
@@ -56,6 +58,12 @@ class Connection extends EventEmitter {
     if (++this._sequence > 255) this._sequence = 0;
     const packet = new Packet(MessageTypes.COMMAND, this._sequence, command);
     this._socket.send(packet.toBuffer());
+  }
+
+  private _heartbeat() {
+    if (this._connected) {
+      this._socket.send(new Packet(MessageTypes.COMMAND).toBuffer());
+    }
   }
 
   private _login() {

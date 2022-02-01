@@ -11,7 +11,7 @@ class Packet {
   private readonly _sequence: number | null;
   private readonly _payload: Buffer | null;
 
-  constructor(type: MessageTypes, sequence: number | null = null, payload: string | Buffer | null) {
+  constructor(type: MessageTypes, sequence: number | null = null, payload: string | Buffer | null = null) {
     this._type = type;
     this._sequence = sequence;
 
