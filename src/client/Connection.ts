@@ -28,8 +28,8 @@ class Connection extends EventEmitter {
     this._port = port;
     this._password = password;
 
-    this._socket.on('connect', this._login);
-    this._socket.on('message', this._receivePacket);
+    this._socket.on('connect', () => this._login());
+    this._socket.on('message', (data) => this._receivePacket(data));
 
     setInterval(this._heartbeat, 30_000);
   }
