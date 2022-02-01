@@ -29,7 +29,7 @@ class Connection extends EventEmitter {
     this._password = password;
 
     this._socket.on('connect', this._login);
-    this._socket.on('message', this.receivePacket);
+    this._socket.on('message', this._receivePacket);
   }
 
   public get ip(): string {
@@ -58,7 +58,11 @@ class Connection extends EventEmitter {
     this._socket.send(packet.toBuffer());
   }
 
-  protected receivePacket(data: Buffer) {
+  private _login() {
+    this._socket.send(new Packet(MessageTypes.LOGIN, null, this.password).toBuffer());
+  }
+
+  private _receivePacket(data: Buffer) {
     const packet = Packet.from(data);
 
     switch (packet.type) {
@@ -78,10 +82,6 @@ class Connection extends EventEmitter {
       default:
         break;
     }
-  }
-
-  private _login() {
-    this._socket.send(new Packet(MessageTypes.LOGIN, null, this.password).toBuffer());
   }
 }
 
