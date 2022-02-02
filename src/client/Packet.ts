@@ -9,14 +9,14 @@ export enum MessageTypes {
 class Packet {
   private readonly _type: MessageTypes;
   private readonly _sequence: number | null;
-  private readonly _payload: Buffer | null;
+  private readonly _payload: Buffer;
 
   constructor(type: MessageTypes, sequence: number | null = null, payload: string | Buffer | null = null) {
     this._type = type;
     this._sequence = sequence;
 
     if (payload === null) {
-      this._payload = null;
+      this._payload = Buffer.from([0x00]);
       return;
     }
 
@@ -52,7 +52,6 @@ class Packet {
 
   public toBuffer(): Buffer {
     const prefixSize = this._sequence !== null ? 3 : 2;
-    const payload = this._payload || Buffer.from([0x00, 0x00]);
 
     let checksumInput = Buffer.alloc(prefixSize);
 
@@ -60,7 +59,7 @@ class Packet {
     checksumInput.writeUInt8(this._type, 1);
 
     if (this._sequence !== null) checksumInput.writeUInt8(this._sequence, 2);
-    checksumInput = Buffer.concat([checksumInput, payload]);
+    checksumInput = Buffer.concat([checksumInput, this._payload]);
 
     const checksum = crc32(checksumInput);
 
@@ -69,7 +68,7 @@ class Packet {
 
     const header = Buffer.from(headerParts);
 
-    return Buffer.concat([header, payload]);
+    return Buffer.concat([header, this._payload]);
   }
 }
 
