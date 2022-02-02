@@ -31,7 +31,9 @@ class Connection extends EventEmitter {
     this._socket.on('connect', () => this._login());
     this._socket.on('message', (data) => this._receivePacket(data));
 
-    setInterval(this._heartbeat, 30_000);
+    setInterval(() => {
+      this._heartbeat();
+    }, 30_000);
   }
 
   public get ip(): string {
@@ -72,7 +74,6 @@ class Connection extends EventEmitter {
 
   private _receivePacket(data: Buffer) {
     const packet = Packet.from(data);
-
     switch (packet.type) {
       case MessageTypes.LOGIN:
         if (packet.payload?.[0] === 0x01) {

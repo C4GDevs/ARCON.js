@@ -20,7 +20,7 @@ class Packet {
       return;
     }
 
-    this._payload = payload instanceof Buffer ? payload : Buffer.from(payload, 'ascii');
+    this._payload = payload instanceof Buffer ? payload : Buffer.from(payload);
   }
 
   public static from(data: Buffer): Packet {
@@ -28,7 +28,8 @@ class Packet {
     const type = data[7];
     const payload = data.subarray(8);
 
-    if (checksum.compare(crc32(data.subarray(7))) !== 0) throw new Error('Packet payload does not match checksum.');
+    if (checksum.compare(crc32(data.subarray(6)).reverse()) !== 0)
+      throw new Error('Packet payload does not match checksum.');
 
     if (type === MessageTypes.LOGIN) return new Packet(type, null, payload);
 
@@ -50,18 +51,25 @@ class Packet {
   }
 
   public toBuffer(): Buffer {
-    const payloadSize = this._sequence !== null ? 2 : 1;
-    let payloadBuffer = Buffer.alloc(payloadSize);
+    const prefixSize = this._sequence !== null ? 3 : 2;
+    const payload = this._payload || Buffer.from([0x00, 0x00]);
 
-    payloadBuffer.writeUInt8(this._type);
+    let checksumInput = Buffer.alloc(prefixSize);
 
-    if (this._sequence !== null) payloadBuffer.writeUInt8(this._sequence, 1);
-    if (this._payload) payloadBuffer = Buffer.concat([payloadBuffer, this._payload]);
+    checksumInput.writeUInt8(0xff);
+    checksumInput.writeUInt8(this._type, 1);
 
-    const checksum = crc32(payloadBuffer);
-    const header = Buffer.from([0x42, 0x45, ...checksum, 0xff]);
+    if (this._sequence !== null) checksumInput.writeUInt8(this._sequence, 2);
+    checksumInput = Buffer.concat([checksumInput, payload]);
 
-    return Buffer.concat([header, payloadBuffer]);
+    const checksum = crc32(checksumInput);
+
+    const headerParts = [0x42, 0x45, ...checksum.reverse(), 0xff, this._type];
+    if (this._sequence !== null) headerParts.push(this._sequence);
+
+    const header = Buffer.from(headerParts);
+
+    return Buffer.concat([header, payload]);
   }
 }
 
