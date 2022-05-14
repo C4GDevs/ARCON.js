@@ -1,4 +1,5 @@
 import crc32 from 'buffer-crc32';
+import PacketPart from './PacketPart';
 
 export enum MessageTypes {
   LOGIN = 0x00,
@@ -9,21 +10,16 @@ export enum MessageTypes {
 class Packet {
   private readonly _type: MessageTypes;
   private readonly _sequence: number | null;
-  private readonly _payload: Buffer;
+  private readonly _payload: Buffer | null;
 
   constructor(type: MessageTypes, sequence: number | null = null, payload: string | Buffer | null = null) {
     this._type = type;
     this._sequence = sequence;
 
-    if (payload === null) {
-      this._payload = Buffer.from([0x00]);
-      return;
-    }
-
-    this._payload = payload instanceof Buffer ? payload : Buffer.from(payload);
+    this._payload = payload ? Buffer.from(payload) : null;
   }
 
-  public static from(data: Buffer): Packet {
+  public static from(data: Buffer): Packet | PacketPart {
     const checksum = data.subarray(2, 6);
     const type = data[7];
     const payload = data.subarray(8);
@@ -34,6 +30,13 @@ class Packet {
     if (type === MessageTypes.LOGIN) return new Packet(type, null, payload);
 
     const sequence = payload[0];
+
+    if (payload[1] === 0x00) {
+      const parts = payload[2];
+      const index = payload[3];
+
+      return new PacketPart(type, sequence, payload.subarray(4), parts, index);
+    }
 
     return new Packet(type, sequence, payload.subarray(1));
   }
@@ -59,7 +62,7 @@ class Packet {
     checksumInput.writeUInt8(this._type, 1);
 
     if (this._sequence !== null) checksumInput.writeUInt8(this._sequence, 2);
-    checksumInput = Buffer.concat([checksumInput, this._payload]);
+    checksumInput = this._payload ? Buffer.concat([checksumInput, this._payload]) : checksumInput;
 
     const checksum = crc32(checksumInput);
 
@@ -68,7 +71,7 @@ class Packet {
 
     const header = Buffer.from(headerParts);
 
-    return Buffer.concat([header, this._payload]);
+    return this._payload ? Buffer.concat([header, this._payload]) : header;
   }
 }
 
