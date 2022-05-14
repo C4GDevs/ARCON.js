@@ -34,8 +34,6 @@ class Connection extends EventEmitter {
 
     this._socket.on('connect', () => this._login());
     this._socket.on('message', (data) => this._receivePacket(data));
-    this._socket.on('error', (err) => console.log(err));
-    this._socket.on('close', () => console.log('closed'));
 
     setInterval(() => {
       this._heartbeat();
@@ -78,6 +76,7 @@ class Connection extends EventEmitter {
   }
 
   private _login() {
+    if (this._connected) return;
     this._socket.send(new Packet(MessageTypes.LOGIN, null, this.password).toBuffer());
   }
 
@@ -110,13 +109,16 @@ class Connection extends EventEmitter {
         break;
       }
 
-      case MessageTypes.COMMAND:
+      case MessageTypes.COMMAND: {
+        if (!packet.payload?.toString().trim()) break;
         this.emit('message', packet);
         break;
+      }
 
       case MessageTypes.SERVER_MESSAGE: {
         const response = new Packet(MessageTypes.SERVER_MESSAGE, packet.sequence, null);
         this._socket.send(response.toBuffer());
+
         this.emit('message', packet);
         break;
       }
