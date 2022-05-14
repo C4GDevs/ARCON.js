@@ -111,11 +111,13 @@ class Connection extends EventEmitter {
       }
 
       case MessageTypes.COMMAND:
+        this.emit('message', packet);
         break;
 
       case MessageTypes.SERVER_MESSAGE: {
         const response = new Packet(MessageTypes.SERVER_MESSAGE, packet.sequence, null);
         this._socket.send(response.toBuffer());
+        this.emit('message', packet);
         break;
       }
 
