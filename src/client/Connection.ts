@@ -12,7 +12,7 @@ interface ConnectionProperties {
 
 declare interface Connection {
   on(event: 'connected', listener: () => void): this;
-  on(event: 'message', listener: () => void): this;
+  on(event: 'message', listener: (message: Packet) => void): this;
 }
 
 class Connection extends EventEmitter {
