@@ -116,7 +116,7 @@ class Connection extends EventEmitter {
       case MessageTypes.LOGIN: {
         if (packet.payload?.[0] === 0x01) {
           this._connected = true;
-          this.emit('connected');
+          setTimeout(() => this.emit('connected'), 1000);
         } else throw new Error('Failed to login to RCON server.');
         break;
       }
