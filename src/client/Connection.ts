@@ -74,7 +74,11 @@ class Connection extends EventEmitter {
     const packet = new Packet(MessageTypes.COMMAND, sequence, formatted);
     this._socket.send(packet.toBuffer());
 
-    return sequence;
+    return new Promise((resolve) => {
+      this.once(sequence.toString(), (data: Packet) => {
+        resolve(data);
+      });
+    });
   }
 
   private _heartbeat() {
@@ -119,7 +123,8 @@ class Connection extends EventEmitter {
 
       case MessageTypes.COMMAND: {
         if (!packet.payload?.toString().trim()) break;
-        this.emit('message', packet);
+        if (packet.sequence !== null) this.emit(packet.sequence.toString(), packet);
+        else this.emit('message', packet);
         break;
       }
 
