@@ -1,5 +1,6 @@
 import { createSocket } from 'dgram';
 import EventEmitter from 'events';
+import CommandManager from './commands';
 import Packet, { MessageTypes } from './Packet';
 import PacketManager from './PacketManager';
 import PacketPart from './PacketPart';
@@ -16,6 +17,8 @@ declare interface Connection {
 }
 
 class Connection extends EventEmitter {
+  public commands: CommandManager;
+
   private readonly _ip: string;
   private readonly _port: number;
   private readonly _password: string;
@@ -31,6 +34,7 @@ class Connection extends EventEmitter {
     this._ip = ip;
     this._port = port;
     this._password = password;
+    this.commands = new CommandManager(this);
 
     this._socket.on('connect', () => this._login());
     this._socket.on('message', (data) => this._receivePacket(data));
@@ -60,13 +64,17 @@ class Connection extends EventEmitter {
     this._socket.connect(this._port, this._ip);
   }
 
-  public sendCommand(command: string, data: string | number | null) {
+  public sendCommand(command: string, ...data: (string | number | null)[]) {
+    if (!this._connected) return;
+
     const sequence = this._getNextSequence();
 
-    const formatted = data ? `${command} ${data}` : command;
+    const formatted = data ? `${command} ${data.join(' ')}` : command;
 
     const packet = new Packet(MessageTypes.COMMAND, sequence, formatted);
     this._socket.send(packet.toBuffer());
+
+    return sequence;
   }
 
   private _heartbeat() {
