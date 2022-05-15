@@ -74,7 +74,7 @@ class Connection extends EventEmitter {
     const packet = new Packet(MessageTypes.COMMAND, sequence, formatted);
     this._socket.send(packet.toBuffer());
 
-    return new Promise((resolve) => {
+    return new Promise<Packet>((resolve) => {
       this.once(sequence.toString(), (data: Packet) => {
         resolve(data);
       });

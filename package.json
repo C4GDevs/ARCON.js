@@ -1,10 +1,11 @@
 {
   "name": "arcon.js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "An RCON client library for Arma III",
   "license": "MIT",
   "keywords": [],
-  "author": "",
+  "author": "JonesBryan",
+  "homepage": "https://github.com/C4GDevs/arcon.js",
   "main": "index.js",
   "types": "index.d.ts",
   "files": [
