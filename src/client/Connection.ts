@@ -62,6 +62,7 @@ class Connection extends EventEmitter {
 
   public connect() {
     this._socket.connect(this._port, this._ip);
+
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject('Could not connect to server.');
@@ -76,16 +77,16 @@ class Connection extends EventEmitter {
   }
 
   public sendCommand(command: string, ...data: (string | number | null)[]) {
-    if (!this._connected) return;
+    return new Promise<Packet>((resolve, reject) => {
+      if (!this._connected) reject();
 
-    const sequence = this._getNextSequence();
+      const sequence = this._getNextSequence();
 
-    const formatted = data ? `${command} ${data.join(' ')}` : command;
+      const formatted = data ? `${command} ${data.join(' ')}` : command;
 
-    const packet = new Packet(MessageTypes.COMMAND, sequence, formatted);
-    this._socket.send(packet.toBuffer());
+      const packet = new Packet(MessageTypes.COMMAND, sequence, formatted);
+      this._socket.send(packet.toBuffer());
 
-    return new Promise<Packet>((resolve) => {
       this.once(sequence.toString(), (data: Packet) => {
         resolve(data);
       });
