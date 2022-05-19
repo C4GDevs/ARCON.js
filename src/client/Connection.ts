@@ -12,7 +12,7 @@ interface ConnectionProperties {
 }
 
 declare interface Connection {
-  on(event: 'connected', listener: () => void): this;
+  on(event: 'connected', listener: (loggedIn: boolean) => void): this;
   on(event: 'message', listener: (message: Packet) => void): this;
 }
 
@@ -62,6 +62,17 @@ class Connection extends EventEmitter {
 
   public connect() {
     this._socket.connect(this._port, this._ip);
+    return new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject('Could not connect to server.');
+      }, 5_000);
+
+      this.once('connected', (success: boolean) => {
+        clearTimeout(timeout);
+        if (success) resolve();
+        else reject('Connection refused (bad password).');
+      });
+    });
   }
 
   public sendCommand(command: string, ...data: (string | number | null)[]) {
@@ -116,8 +127,8 @@ class Connection extends EventEmitter {
       case MessageTypes.LOGIN: {
         if (packet.payload?.[0] === 0x01) {
           this._connected = true;
-          setTimeout(() => this.emit('connected'), 1000);
-        } else throw new Error('Failed to login to RCON server.');
+          setTimeout(() => this.emit('connected', true), 1000);
+        } else this.emit('connected', false);
         break;
       }
 
