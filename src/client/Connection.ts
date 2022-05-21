@@ -9,11 +9,13 @@ interface ConnectionProperties {
   ip: string;
   port: number;
   password: string;
+  autoReconnect: boolean;
 }
 
 declare interface Connection {
   on(event: 'connected', listener: (loggedIn: boolean) => void): this;
   on(event: 'message', listener: (message: Packet) => void): this;
+  on(event: 'disconnected', listener: () => void): this;
 }
 
 class Connection extends EventEmitter {
@@ -22,22 +24,25 @@ class Connection extends EventEmitter {
   private readonly _ip: string;
   private readonly _port: number;
   private readonly _password: string;
+  private readonly _autoReconnect: boolean;
 
   private _socket = createSocket('udp4');
   private _connected = false;
   private _sequence = -1;
   private _packets = new PacketManager();
 
-  constructor({ ip, port, password }: ConnectionProperties) {
+  constructor({ ip, port, password, autoReconnect }: ConnectionProperties) {
     super();
 
     this._ip = ip;
     this._port = port;
     this._password = password;
+    this._autoReconnect = autoReconnect ?? false;
     this.commands = new CommandManager(this);
 
     this._socket.on('connect', () => this._login());
     this._socket.on('message', (data) => this._receivePacket(data));
+    this._socket.on('close', () => this._handleDisconnection());
 
     setInterval(() => {
       this._heartbeat();
@@ -58,6 +63,10 @@ class Connection extends EventEmitter {
 
   public get connected(): boolean {
     return this._connected;
+  }
+
+  public get autoReconnect(): boolean {
+    return this._autoReconnect;
   }
 
   public connect() {
@@ -151,6 +160,11 @@ class Connection extends EventEmitter {
       default:
         break;
     }
+  }
+
+  private _handleDisconnection() {
+    this.emit('disconnected');
+    if (this._autoReconnect) this.connect();
   }
 }
 
