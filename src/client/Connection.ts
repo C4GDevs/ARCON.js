@@ -20,7 +20,7 @@ declare interface Connection {
 }
 
 class Connection extends EventEmitter {
-  public commands: CommandManager;
+  public readonly commands: CommandManager;
 
   public readonly ip: string;
   public readonly port: number;
