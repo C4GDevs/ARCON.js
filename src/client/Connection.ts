@@ -9,7 +9,8 @@ interface ConnectionProperties {
   ip: string;
   port: number;
   password: string;
-  autoReconnect: boolean;
+  autoReconnect?: boolean;
+  connectionTimeout?: number;
 }
 
 declare interface Connection {
@@ -25,19 +26,22 @@ class Connection extends EventEmitter {
   private readonly _port: number;
   private readonly _password: string;
   private readonly _autoReconnect: boolean;
+  private readonly _connectionTimeout: number;
 
   private _socket = createSocket('udp4');
   private _connected = false;
   private _sequence = -1;
   private _packets = new PacketManager();
 
-  constructor({ ip, port, password, autoReconnect }: ConnectionProperties) {
+  constructor({ ip, port, password, autoReconnect, connectionTimeout }: ConnectionProperties) {
     super();
 
     this._ip = ip;
     this._port = port;
     this._password = password;
     this._autoReconnect = autoReconnect ?? false;
+    this._connectionTimeout = connectionTimeout ?? 5_000;
+
     this.commands = new CommandManager(this);
 
     this._socket.on('connect', () => this._login());
@@ -75,7 +79,7 @@ class Connection extends EventEmitter {
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject('Could not connect to server.');
-      }, 5_000);
+      }, this._connectionTimeout);
 
       this.once('connected', (success: boolean) => {
         clearTimeout(timeout);
