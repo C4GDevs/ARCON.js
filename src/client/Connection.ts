@@ -22,11 +22,11 @@ declare interface Connection {
 class Connection extends EventEmitter {
   public commands: CommandManager;
 
-  private readonly _ip: string;
-  private readonly _port: number;
-  private readonly _password: string;
-  private readonly _autoReconnect: boolean;
-  private readonly _connectionTimeout: number;
+  public readonly ip: string;
+  public readonly port: number;
+  public readonly password: string;
+  public readonly autoReconnect: boolean;
+  public readonly connectionTimeout: number;
 
   private _socket = createSocket('udp4');
   private _connected = false;
@@ -36,11 +36,11 @@ class Connection extends EventEmitter {
   constructor({ ip, port, password, autoReconnect, connectionTimeout }: ConnectionProperties) {
     super();
 
-    this._ip = ip;
-    this._port = port;
-    this._password = password;
-    this._autoReconnect = autoReconnect ?? false;
-    this._connectionTimeout = connectionTimeout ?? 5_000;
+    this.ip = ip;
+    this.port = port;
+    this.password = password;
+    this.autoReconnect = autoReconnect ?? false;
+    this.connectionTimeout = connectionTimeout ?? 5_000;
 
     this.commands = new CommandManager(this);
 
@@ -53,33 +53,13 @@ class Connection extends EventEmitter {
     }, 15_000);
   }
 
-  public get ip(): string {
-    return this._ip;
-  }
-
-  public get port(): number {
-    return this._port;
-  }
-
-  public get password(): string {
-    return this._password;
-  }
-
-  public get connected(): boolean {
-    return this._connected;
-  }
-
-  public get autoReconnect(): boolean {
-    return this._autoReconnect;
-  }
-
   public connect() {
-    this._socket.connect(this._port, this._ip);
+    this._socket.connect(this.port, this.ip);
 
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject('Could not connect to server.');
-      }, this._connectionTimeout);
+      }, this.connectionTimeout);
 
       this.once('connected', (success: boolean) => {
         clearTimeout(timeout);
@@ -168,7 +148,7 @@ class Connection extends EventEmitter {
 
   private _handleDisconnection() {
     this.emit('disconnected');
-    if (this._autoReconnect) this.connect();
+    if (this.autoReconnect) this.connect();
   }
 }
 
