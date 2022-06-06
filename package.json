@@ -1,6 +1,6 @@
 {
   "name": "arcon.js",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "description": "An RCON client library for Arma III",
   "license": "MIT",
   "keywords": [
@@ -21,7 +21,8 @@
     "test": "mocha -r ts-node/register 'tests/**/*.ts'",
     "lint": "prettier --check . && eslint src",
     "prepublishOnly": "npm run clean && npm run lint && npm run test && tsc",
-    "postpublish": "npm run clean"
+    "postpublish": "npm run clean",
+    "dev": "ts-node tests/index.ts"
   },
   "devDependencies": {
     "@types/buffer-crc32": "^0.2.0",
