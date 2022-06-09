@@ -1,4 +1,4 @@
-# ARCON.js [![npm version](https://badge.fury.io/js/arcon.js.svg)](https://badge.fury.io/js/arcon.js)
+# ARCON.js [![](https://img.shields.io/npm/v/arcon.js?maxAge=3600)](https://npmjs.com/package/arcon.js)
 
 ARCON.js is a lightweight RCON client for Arma III servers.
 
