@@ -1,5 +1,5 @@
 import crc32 from 'buffer-crc32';
-import { MultiPartPacket } from './Packet';
+import { MultiPartPacket, Packet } from './Packet';
 
 export default class PacketManager {
   private packetParts: Map<number, MultiPartPacket[]>;
@@ -14,10 +14,10 @@ export default class PacketManager {
     const data = buf.subarray(8);
 
     if (!this._validate(checksum, Buffer.from([type, ...data]))) {
-      return;
+      throw new Error('Invalid packet checksum');
     }
 
-    return;
+    return new Packet(type, data);
   }
 
   private _validate(checksum: Buffer, data: Buffer) {
