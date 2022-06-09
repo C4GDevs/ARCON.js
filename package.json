@@ -17,7 +17,7 @@
     "client/**/*"
   ],
   "scripts": {
-    "clean": "rm -rf client && rm -rf index.d.ts && rm -rf index.js",
+    "clean": "rm -r packetManager && rm -r playerManager && rm -r index.d.ts && rm -r index.js",
     "test": "mocha -r ts-node/register 'tests/**/*.ts'",
     "lint": "prettier --check . && eslint src",
     "prepublishOnly": "npm run clean && npm run lint && npm run test && tsc",
