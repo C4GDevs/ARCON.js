@@ -49,8 +49,16 @@ describe('Packet Manager', () => {
   });
 
   it('Creates a packet from multiple parts', () => {
+    let finishedPacket: Packet | null = null;
     for (const packet of largePacket) {
-      manager.buildPacket(packet);
+      const p = manager.buildPacket(packet);
+      if (p instanceof Packet) finishedPacket = p;
     }
+
+    expect(finishedPacket).to.not.be.null;
+    expect(finishedPacket).to.be.instanceOf(Packet);
+
+    expect(finishedPacket?.data).to.equal('testtesttesttest');
+    expect(finishedPacket?.type).to.equal(PacketTypes.COMMAND);
   });
 });
