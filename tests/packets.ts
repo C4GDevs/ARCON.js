@@ -63,5 +63,16 @@ describe('Packet Manager', () => {
     expect(finishedPacket?.type).to.equal(PacketTypes.COMMAND);
   });
 
-  it('Creates a packet from arguments', () => {});
+  it('Creates a buffer from arguments', () => {
+    const loginPacket = manager.buildPacket(manager.buildBuffer(PacketTypes.LOGIN, 'test'));
+    const commandPacket = manager.buildPacket(manager.buildBuffer(PacketTypes.COMMAND, 'test'));
+
+    expect(loginPacket.type).to.equal(PacketTypes.LOGIN);
+    expect(loginPacket.data).to.equal('test');
+    expect(loginPacket.sequence).to.be.null;
+
+    expect(commandPacket.type).to.equal(PacketTypes.COMMAND);
+    expect(commandPacket.data).to.equal('test');
+    expect(commandPacket.sequence).to.equal(0);
+  });
 });

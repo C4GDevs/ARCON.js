@@ -3,9 +3,28 @@ import { MultiPartPacket, Packet, PacketTypes } from './Packet';
 
 export default class PacketManager {
   private _packetParts: Map<number, MultiPartPacket[]>;
+  private _sequence = -1;
 
   constructor() {
     this._packetParts = new Map();
+  }
+
+  public buildBuffer(type: PacketTypes, data?: string) {
+    const checksumInput = [0xff, type];
+
+    const isLoginPacket = type === PacketTypes.LOGIN;
+
+    if (!isLoginPacket) checksumInput.push(this._getNextSequence());
+    if (data) checksumInput.push(...Buffer.from(data));
+
+    const checksum = crc32(Buffer.from(checksumInput));
+
+    const header = [0x42, 0x45, ...checksum.reverse(), 0xff, type];
+    if (!isLoginPacket) header.push(checksumInput[2]);
+
+    const bufferHeader = Buffer.from(header);
+
+    return data ? Buffer.concat([bufferHeader, Buffer.from(data)]) : bufferHeader;
   }
 
   public buildPacket(buf: Buffer) {
@@ -49,7 +68,13 @@ export default class PacketManager {
       return packet;
     }
 
-    return new Packet(type, sequence, data);
+    if (type === PacketTypes.LOGIN) return new Packet(type, null, data);
+
+    return new Packet(type, sequence, data.subarray(1));
+  }
+
+  private _getNextSequence() {
+    return ++this._sequence % 256;
   }
 
   private _validate(checksum: Buffer, data: Buffer) {
