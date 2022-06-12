@@ -73,6 +73,16 @@ export default class PacketManager {
     return new Packet(type, sequence, data.subarray(1));
   }
 
+  public buildResponseBuffer(sequence: number) {
+    const checksumInput = [0xff, PacketTypes.SERVER_MESSAGE, sequence];
+
+    const checksum = crc32(Buffer.from(checksumInput));
+
+    const header = [0x42, 0x45, ...checksum.reverse(), 0xff, PacketTypes.SERVER_MESSAGE, sequence];
+
+    return Buffer.from(header);
+  }
+
   private _getNextSequence() {
     return ++this._sequence % 256;
   }
