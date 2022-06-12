@@ -1,5 +1,6 @@
 import { createSocket, Socket } from 'dgram';
 import EventEmitter from 'events';
+import { PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import PlayerManager from '../playerManager/PlayerManager';
 
@@ -33,7 +34,8 @@ export default class ARcon extends EventEmitter {
     this.players = new PlayerManager();
 
     this._socket = createSocket('udp4');
-    this._socket.on('message', this._handlePacket);
+    this._socket.on('message', (packet) => this._handlePacket(packet));
+    this._socket.on('close', () => (this._connected = false));
 
     this._packetManager = new PacketManager();
 
@@ -74,12 +76,25 @@ export default class ARcon extends EventEmitter {
     });
   }
 
+  public disconnect() {
+    this._connected = false;
+    this._socket.disconnect();
+  }
+
   private _login() {
-    this._socket.send('mybuffer');
+    this._socket.send(this._packetManager.buildBuffer(PacketTypes.LOGIN, this.password));
     return;
   }
 
   private _handlePacket(buf: Buffer) {
-    this._packetManager.buildPacket(buf);
+    const packet = this._packetManager.buildPacket(buf);
+
+    if (packet.type === PacketTypes.LOGIN) {
+      const data = packet.rawData?.[0] ?? 0x00;
+
+      if (data === 0x01) this.emit('_loggedIn', true);
+      else this.emit('_loggedIn', false);
+      return;
+    }
   }
 }

@@ -14,6 +14,11 @@ export class Packet {
     this.sequence = sequence;
     this.data = data?.toString() || null;
   }
+
+  public get rawData(): Buffer | null {
+    if (!this.data) return null;
+    return Buffer.from(this.data, 'ascii');
+  }
 }
 
 export class MultiPartPacket extends Packet {
