@@ -36,7 +36,7 @@ export default class ARcon extends EventEmitter {
 
     this._socket = createSocket('udp4');
     this._socket.on('message', (packet) => this._handlePacket(packet));
-    this._socket.on('error', (err) => console.log(err));
+    this._socket.on('error', (err) => this.emit('error', err));
 
     this._packetManager = new PacketManager();
 
