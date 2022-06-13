@@ -52,7 +52,7 @@ export default class ARcon extends EventEmitter {
 
   public connect() {
     return new Promise<void>((resolve, reject) => {
-      if (this._connected) reject('Already connected to server.');
+      if (this._connected) reject('Already connected to server');
 
       setTimeout(() => {
         if (!this._connected) reject('Could not connect to server');

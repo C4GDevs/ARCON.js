@@ -29,6 +29,6 @@ describe('Connection', () => {
   });
 
   it('Errors on multiple connections', async () => {
-    connection.connect().catch((e) => expect(e).to.equal('Already connected to server.'));
+    connection.connect().catch((e) => expect(e).to.equal('Already connected to server'));
   });
 });
