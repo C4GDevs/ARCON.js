@@ -22,7 +22,10 @@ export default class ARcon extends EventEmitter {
   private readonly _packetManager: PacketManager;
 
   private _connected: boolean;
+
+  private _lastCommandTime: Date;
   private _lastResponseTime: Date;
+  private _heartbeatId: number | null;
 
   constructor(opts: ConnectionProperies) {
     super();
@@ -41,9 +44,14 @@ export default class ARcon extends EventEmitter {
     this._packetManager = new PacketManager();
 
     this._connected = false;
-    this._lastResponseTime = new Date();
 
-    setInterval(() => this._heartbeat(), 10_000);
+    this._lastCommandTime = new Date();
+    this._lastResponseTime = new Date();
+    this._heartbeatId = null;
+
+    setInterval(() => {
+      this._heartbeat();
+    }, 1_000);
   }
 
   public get connected(): boolean {
@@ -76,6 +84,7 @@ export default class ARcon extends EventEmitter {
 
   private _handlePacket(buf: Buffer) {
     this._lastResponseTime = new Date();
+
     const packet = this._packetManager.buildPacket(buf);
 
     // Handle login response, 0x01 is success 0x00 is failure.
@@ -100,17 +109,29 @@ export default class ARcon extends EventEmitter {
 
       this.emit('message', packet.data);
     }
+
+    if (packet.type === PacketTypes.COMMAND) {
+      if (this._heartbeatId ?? -1 === packet.sequence) return;
+    }
   }
 
-  // BattlEye requires reauth after 45 seconds of no messages.
   private _heartbeat() {
     if (!this._connected) return;
 
-    const isConnected = Date.now() - this._lastResponseTime.valueOf() < 45_000;
+    const lastResponseDelta = Date.now() - this._lastResponseTime.valueOf();
+    const lastCommandDelta = Date.now() - this._lastCommandTime.valueOf();
 
-    if (isConnected) this._send(this._packetManager.buildBuffer(PacketTypes.COMMAND));
-    else {
-      this._connected = false;
+    if (lastResponseDelta > 5_000 || lastCommandDelta > 40_000) {
+      const packet = this._packetManager.buildBuffer(PacketTypes.COMMAND, 'version');
+
+      this._heartbeatId = this._packetManager.buildPacket(packet).sequence;
+
+      this._send(packet);
+      this._lastCommandTime = new Date();
+    }
+
+    if (lastResponseDelta > 10_000) {
+      this.disconnect();
       this.emit('disconnected', 'no message');
     }
   }
