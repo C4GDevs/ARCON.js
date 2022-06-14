@@ -5,26 +5,53 @@ import PacketManager from '../packetManager/PacketManager';
 import PlayerManager from '../playerManager/PlayerManager';
 
 interface ConnectionProperies {
+  /** IP address to connect to. */
   ip: string;
+  /** Port to connect to. */
   port: number;
+  /** RCon server's password. */
   password: string;
+  /** Time to wait (in milliseconds) before a connection is aborted. */
   timeout?: number;
+  /** Splits different message types into different events. */
+  separateMessageTypes?: boolean;
 }
 
-export default class ARcon extends EventEmitter {
+export default class ARCon extends EventEmitter {
+  /** @readonly IP address of RCon server. */
   public readonly ip: string;
+
+  /** @readonly Port of RCon server. */
   public readonly port: number;
+
+  /** @readonly Password of RCon server. */
   public readonly password: string;
+
+  /** @readonly Time to wait (in milliseconds) before a connection is aborted. */
   public readonly timeout: number;
+
+  /** @readonly Controller for players connected to server. */
   public readonly players: PlayerManager;
 
+  /** @readonly Determines if messages (such as BELogs) should be split into separate events. */
+  public readonly separateMessageTypes: boolean;
+
+  /** @readonly UDP socket use to communicate to server. */
   private readonly _socket: Socket;
+
+  /** @readonly Controller for constructing and destructing packets. */
   private readonly _packetManager: PacketManager;
 
+  /** Is this client currently connected to an RCon server. */
   private _connected: boolean;
 
+  /** Time which client last sent a command packet. */
   private _lastCommandTime: Date;
+
+  /** Time which client last received a packet. */
   private _lastResponseTime: Date;
+
+  /** Sequence number of packet sent at `_lastCommandTime` */
   private _heartbeatId: number | null;
 
   constructor(opts: ConnectionProperies) {
@@ -34,6 +61,7 @@ export default class ARcon extends EventEmitter {
     this.port = opts.port;
     this.password = opts.password;
     this.timeout = opts.timeout ?? 5_000;
+    this.separateMessageTypes = opts.separateMessageTypes ?? false;
 
     this.players = new PlayerManager();
 
@@ -58,6 +86,10 @@ export default class ARcon extends EventEmitter {
     return this._connected;
   }
 
+  /**
+   * Initiate connection with RCon server.
+   * Rejects if an error occurs or timeout exceeds.
+   */
   public connect() {
     return new Promise<void>((resolve, reject) => {
       if (this._connected) reject('Already connected to server');
@@ -77,7 +109,10 @@ export default class ARcon extends EventEmitter {
     });
   }
 
+  /** Disconnects from RCon server. */
   public disconnect() {
+    if (!this._connected) return;
+
     this._connected = false;
     this._socket.disconnect();
   }
