@@ -1,6 +1,6 @@
 import { createSocket, Socket } from 'dgram';
 import EventEmitter from 'events';
-import { PacketTypes } from '../packetManager/Packet';
+import { Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import PlayerManager from '../playerManager/PlayerManager';
 
@@ -87,8 +87,13 @@ export default class ARCon extends EventEmitter {
   }
 
   /**
-   * Initiate connection with RCon server.
-   * Rejects if an error occurs or timeout exceeds.
+   * Initiates connection with RCon server.
+   * @example
+   * ```ts
+   * arcon.connect()
+   *  .then(() => console.log('connected'))
+   *  .catch((reason) => console.error(reason))
+   * ```
    */
   public connect() {
     return new Promise<void>((resolve, reject) => {
@@ -117,36 +122,34 @@ export default class ARCon extends EventEmitter {
     this._socket.disconnect();
   }
 
+  /** Process incoming command packet. */
+  private _commandMessage(packet: Packet) {
+    if (!packet.sequence) return;
+
+    // Heartbeat response.
+    if (this._heartbeatId ?? -1 === packet.sequence) return;
+  }
+
+  /** Processes and identifies packets from RCon server. */
   private _handlePacket(buf: Buffer) {
     this._lastResponseTime = new Date();
 
     const packet = this._packetManager.buildPacket(buf);
 
-    // Handle login response, 0x01 is success 0x00 is failure.
     if (packet.type === PacketTypes.LOGIN) {
-      const data = packet.rawData?.[0] ?? 0x00;
-
-      if (data === 0x01) {
-        this.emit('connected', { success: true, error: null });
-        this._connected = true;
-      } else this.emit('connected', { success: false, error: 'Connection refused (Bad login)' });
-
+      this._loginMessage(packet);
       return;
     }
 
-    // Sequence should never be null here, Typescript needs this for static checks.
-    if (packet.sequence === null) return;
-
-    // Make sure to send reply back to server.
     if (packet.type === PacketTypes.SERVER_MESSAGE) {
-      const response = this._packetManager.buildResponseBuffer(packet.sequence);
-      this._send(response);
-
-      this.emit('message', packet.data);
+      this._serverMessage(packet);
+      return;
     }
 
+    // Heartbeat response.
     if (packet.type === PacketTypes.COMMAND) {
-      if (this._heartbeatId ?? -1 === packet.sequence) return;
+      this._commandMessage(packet);
+      return;
     }
   }
 
@@ -176,7 +179,34 @@ export default class ARCon extends EventEmitter {
     this._send(packet);
   }
 
+  /** Process incoming login packet. */
+  private _loginMessage(packet: Packet) {
+    const data = packet.rawData?.[0] ?? 0x00;
+
+    // 0x01 is success 0x00 is failure.
+    if (data === 0x01) {
+      this.emit('connected', { success: true, error: null });
+      this._connected = true;
+    } else this.emit('connected', { success: false, error: 'Connection refused (Bad login)' });
+  }
+
   private _send(buffer: Buffer) {
     this._socket.send(buffer, this.port, this.ip);
+  }
+
+  /** Process incoming server packet. */
+  private _serverMessage(packet: Packet) {
+    if (packet.sequence === null) return;
+
+    // Make sure to tell RCon server we received the message.
+    const response = this._packetManager.buildResponseBuffer(packet.sequence);
+    this._send(response);
+
+    if (!this.separateMessageTypes) {
+      this.emit('message', packet.data);
+      return;
+    }
+
+    // Process messages further.
   }
 }
