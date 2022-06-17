@@ -17,6 +17,13 @@ interface ConnectionProperies {
   separateMessageTypes?: boolean;
 }
 
+export default interface ARCon {
+  on(event: 'command', listener: (data: string) => void): this;
+  on(event: 'connected', listener: (loggedIn: boolean) => void): this;
+  on(event: 'disconnected', listener: () => void): this;
+  on(event: 'message', listener: (message: string) => void): this;
+}
+
 export default class ARCon extends EventEmitter {
   /** @readonly IP address of RCon server. */
   public readonly ip: string;
@@ -187,7 +194,10 @@ export default class ARCon extends EventEmitter {
     if (data === 0x01) {
       this.emit('connected', { success: true, error: null });
       this._connected = true;
-    } else this.emit('connected', { success: false, error: 'Connection refused (Bad login)' });
+      return;
+    }
+
+    this.emit('connected', { success: false, error: 'Connection refused (Bad login)' });
   }
 
   private _send(buffer: Buffer) {
