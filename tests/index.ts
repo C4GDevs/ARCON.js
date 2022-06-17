@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import arcon from '../src';
+import { arcon } from '../src';
 
 const connection = new arcon({ ip: '140.82.114.3', port: 2333, password: 'test', timeout: 100 });
 
