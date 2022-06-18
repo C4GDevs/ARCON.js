@@ -93,7 +93,7 @@ export default class ARCon extends EventEmitter {
 
     setInterval(() => {
       this._heartbeat();
-    }, 1_000);
+    }, 5_000);
   }
 
   public get connected(): boolean {
@@ -144,9 +144,6 @@ export default class ARCon extends EventEmitter {
   private _commandMessage(packet: Packet) {
     if (packet.sequence === null) return;
 
-    // Heartbeat response.
-    if (this._heartbeatId ?? -1 === packet.sequence) return;
-
     // Packet is not ready yet.
     if (packet instanceof MultiPartPacket) return;
 
@@ -169,6 +166,7 @@ export default class ARCon extends EventEmitter {
       return;
     }
 
+    // todo: implement ban manager
     if (packet.data.startsWith('GUID Bans') && this.loadBans) {
       return;
     }
@@ -204,7 +202,7 @@ export default class ARCon extends EventEmitter {
     const lastCommandDelta = Date.now() - this._lastCommandTime.valueOf();
 
     if (lastResponseDelta > 5_000 || lastCommandDelta > 40_000) {
-      const packet = this._packetManager.buildBuffer(PacketTypes.COMMAND, 'version');
+      const packet = this._packetManager.buildBuffer(PacketTypes.COMMAND, 'players');
 
       this._heartbeatId = this._packetManager.buildPacket(packet).sequence;
 
