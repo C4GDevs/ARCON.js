@@ -1,6 +1,6 @@
 import { createSocket, Socket } from 'dgram';
 import EventEmitter from 'events';
-import { Packet, PacketTypes } from '../packetManager/Packet';
+import { MultiPartPacket, Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import PlayerManager from '../playerManager/PlayerManager';
 
@@ -131,10 +131,13 @@ export default class ARCon extends EventEmitter {
 
   /** Process incoming command packet. */
   private _commandMessage(packet: Packet) {
-    if (!packet.sequence) return;
+    if (packet.sequence === null) return;
 
     // Heartbeat response.
     if (this._heartbeatId ?? -1 === packet.sequence) return;
+
+    // Packet is not ready yet.
+    if (packet instanceof MultiPartPacket) return;
   }
 
   /** Processes and identifies packets from RCon server. */
@@ -192,6 +195,8 @@ export default class ARCon extends EventEmitter {
 
     // 0x01 is success 0x00 is failure.
     if (data === 0x01) {
+      this._send(this._packetManager.buildBuffer(PacketTypes.COMMAND, 'players'));
+
       this.emit('connected', { success: true, error: null });
       this._connected = true;
       return;
