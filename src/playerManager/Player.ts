@@ -11,6 +11,7 @@ export default class Player {
   public readonly guid: string;
   public readonly id: number;
   public readonly ip: string;
+  public readonly connectedAt: Date;
 
   public lobby: boolean;
 
@@ -20,5 +21,7 @@ export default class Player {
     this.id = id;
     this.ip = ip;
     this.lobby = lobby;
+
+    this.connectedAt = new Date();
   }
 }
