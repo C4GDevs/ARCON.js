@@ -2,6 +2,7 @@ import { createSocket, Socket } from 'dgram';
 import EventEmitter from 'events';
 import { MultiPartPacket, Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
+import Player from '../playerManager/Player';
 import PlayerManager from '../playerManager/PlayerManager';
 
 interface ConnectionProperies {
@@ -15,6 +16,8 @@ interface ConnectionProperies {
   timeout?: number;
   /** Splits different message types into different events. */
   separateMessageTypes?: boolean;
+  /** Whether bans should be loaded on connection and cached. */
+  loadBans?: boolean;
 }
 
 export default interface ARCon {
@@ -28,29 +31,29 @@ export default class ARCon extends EventEmitter {
   /** @readonly IP address of RCon server. */
   public readonly ip: string;
 
-  /** @readonly Port of RCon server. */
-  public readonly port: number;
+  /** @readonly Whether bans should be loaded on connection and cached. */
+  public readonly loadBans: boolean;
 
   /** @readonly Password of RCon server. */
   public readonly password: string;
 
-  /** @readonly Time to wait (in milliseconds) before a connection is aborted. */
-  public readonly timeout: number;
-
   /** @readonly Controller for players connected to server. */
-  public readonly players: PlayerManager;
+  private readonly _players: PlayerManager;
+
+  /** @readonly Port of RCon server. */
+  public readonly port: number;
 
   /** @readonly Determines if messages (such as BELogs) should be split into separate events. */
   public readonly separateMessageTypes: boolean;
 
-  /** @readonly UDP socket use to communicate to server. */
-  private readonly _socket: Socket;
-
-  /** @readonly Controller for constructing and destructing packets. */
-  private readonly _packetManager: PacketManager;
+  /** @readonly Time to wait (in milliseconds) before a connection is aborted. */
+  public readonly timeout: number;
 
   /** Is this client currently connected to an RCon server. */
   private _connected: boolean;
+
+  /** Sequence number of packet sent at `_lastCommandTime` */
+  private _heartbeatId: number | null;
 
   /** Time which client last sent a command packet. */
   private _lastCommandTime: Date;
@@ -58,8 +61,11 @@ export default class ARCon extends EventEmitter {
   /** Time which client last received a packet. */
   private _lastResponseTime: Date;
 
-  /** Sequence number of packet sent at `_lastCommandTime` */
-  private _heartbeatId: number | null;
+  /** @readonly Controller for constructing and destructing packets. */
+  private readonly _packetManager: PacketManager;
+
+  /** @readonly UDP socket use to communicate to server. */
+  private readonly _socket: Socket;
 
   constructor(opts: ConnectionProperies) {
     super();
@@ -69,8 +75,9 @@ export default class ARCon extends EventEmitter {
     this.password = opts.password;
     this.timeout = opts.timeout ?? 5_000;
     this.separateMessageTypes = opts.separateMessageTypes ?? false;
+    this.loadBans = opts.loadBans ?? false;
 
-    this.players = new PlayerManager();
+    this._players = new PlayerManager();
 
     this._socket = createSocket('udp4');
     this._socket.on('message', (packet) => this._handlePacket(packet));
@@ -129,6 +136,10 @@ export default class ARCon extends EventEmitter {
     this._socket.disconnect();
   }
 
+  public get players() {
+    return [...this._players.cache];
+  }
+
   /** Process incoming command packet. */
   private _commandMessage(packet: Packet) {
     if (packet.sequence === null) return;
@@ -138,6 +149,29 @@ export default class ARCon extends EventEmitter {
 
     // Packet is not ready yet.
     if (packet instanceof MultiPartPacket) return;
+
+    // There's no data to process.
+    if (!packet.data) return;
+
+    // Commands with responses are "players", "bans", and "missions".
+
+    // Always cache player list.
+    if (packet.data.startsWith('Players on server')) {
+      const players = packet.data.matchAll(
+        /(\d+) +([0-9.]+):\d+ +\d+ +([a-z0-9]{32})\([A-Z]+\) (.+?)(?:$| \(Lobby\)$)/gm
+      );
+
+      for (const player of players) {
+        const [, id, ip, guid, name, lobby] = player;
+        this._players.add(new Player({ id: Number(id), ip, guid, name, lobby: lobby === 'true' }));
+      }
+
+      return;
+    }
+
+    if (packet.data.startsWith('GUID Bans') && this.loadBans) {
+      return;
+    }
   }
 
   /** Processes and identifies packets from RCon server. */
