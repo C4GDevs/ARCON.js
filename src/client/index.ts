@@ -155,12 +155,26 @@ export default class ARCon extends EventEmitter {
     // Always cache player list.
     if (packet.data.startsWith('Players on server')) {
       const players = packet.data.matchAll(
-        /(\d+) +([0-9.]+):\d+ +\d+ +([a-z0-9]{32})\([A-Z]+\) (.+?)(?:$| \(Lobby\)$)/gm
+        /(\d+) +([0-9.]+):\d+ +\d+ +([a-z0-9]{32})\([A-Z]+\) (.+?)(?:$| \((Lobby)\)$)/gm
       );
 
       for (const player of players) {
-        const [, id, ip, guid, name, lobby] = player;
-        this._players.add(new Player({ id: Number(id), ip, guid, name, lobby: lobby === 'true' }));
+        const [, idstr, ip, guid, name, inLobby] = player;
+
+        const lobby = inLobby === 'Lobby';
+        const id = Number(idstr);
+
+        const existingPlayer = this._players.resolve(id);
+
+        if (existingPlayer) {
+          existingPlayer.lobby = lobby;
+
+          this._players.remove(existingPlayer);
+          this._players.add(existingPlayer);
+          continue;
+        }
+
+        this._players.add(new Player({ id, ip, guid, name, lobby }));
       }
 
       return;
