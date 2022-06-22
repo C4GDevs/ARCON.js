@@ -24,7 +24,9 @@ interface ConnectionProperies {
 // since the user shouldn't use all of it's functions.
 interface PlayerManager {
   players: Player[];
+  kick(player: Player, reason?: string): void;
   resolve(player: PlayerResolvable): Player | null;
+  say(message: string, target?: Player): void;
 }
 
 export default interface ARCon {
@@ -148,7 +150,9 @@ export default class ARCon extends EventEmitter {
     const players = [...this._players.cache];
     return {
       players,
-      resolve: this._players.resolve
+      kick: this._players.kick,
+      resolve: this._players.resolve,
+      say: this._players.say
     };
   }
 
