@@ -36,7 +36,7 @@ export default class PlayerManager {
    * @param reason Text to show the player.
    */
   public kick(player: Player, reason?: string) {
-    let text = `#kick ${player.id}`;
+    let text = `kick ${player.id}`;
     if (reason) text += ` ${reason}`;
     this._arcon.send(text);
   }
