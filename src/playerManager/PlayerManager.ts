@@ -31,11 +31,39 @@ export default class PlayerManager {
   }
 
   /**
+   * Kicks a player from the server.
+   * @param player The player to kick.
+   * @param reason Text to show the player.
+   */
+  public kick(player: Player, reason?: string) {
+    let text = `#kick ${player.id}`;
+    if (reason) text += ` ${reason}`;
+    this._arcon.send(text);
+  }
+
+  /**
    * Removes a player from the cache.
    * @param player The player to remove.
    */
   public remove(player: Player) {
     this._cache.delete(player);
+  }
+
+  /**
+   * Send a message to server or player.
+   * @param message Text to display.
+   * @param target Player to send message to.
+   */
+  public say(message: string, target?: Player) {
+    let text: string;
+
+    if (target) {
+      text = `say ${target.id} ${message}`;
+    } else {
+      text = `say -1 ${message}`;
+    }
+
+    this._arcon.send(text);
   }
 
   /**
