@@ -1,3 +1,4 @@
+import ARCon from '../client';
 import Player from './Player';
 
 /**
@@ -6,12 +7,14 @@ import Player from './Player';
  * * A BattlEye GUID
  * * An IP address
  */
-type PlayerResolvable = Player | string | number;
+export type PlayerResolvable = Player | string | number;
 
 export default class PlayerManager {
+  private readonly _arcon: ARCon;
   private readonly _cache: Set<Player>;
 
-  constructor() {
+  constructor(arcon: ARCon) {
+    this._arcon = arcon;
     this._cache = new Set();
   }
 

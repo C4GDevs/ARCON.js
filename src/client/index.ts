@@ -3,7 +3,7 @@ import EventEmitter from 'events';
 import { MultiPartPacket, Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import Player from '../playerManager/Player';
-import PlayerManager from '../playerManager/PlayerManager';
+import _PlayerManager, { PlayerResolvable } from '../playerManager/PlayerManager';
 
 interface ConnectionProperies {
   /** IP address to connect to. */
@@ -18,6 +18,13 @@ interface ConnectionProperies {
   separateMessageTypes?: boolean;
   /** Whether bans should be loaded on connection and cached. */
   loadBans?: boolean;
+}
+
+// Restricted version of actual PlayerManager
+// since the user shouldn't use all of it's functions.
+interface PlayerManager {
+  players: Player[];
+  resolve(player: PlayerResolvable): Player | null;
 }
 
 export default interface ARCon {
@@ -38,7 +45,7 @@ export default class ARCon extends EventEmitter {
   public readonly password: string;
 
   /** @readonly Controller for players connected to server. */
-  private readonly _players: PlayerManager;
+  private readonly _players: _PlayerManager;
 
   /** @readonly Port of RCon server. */
   public readonly port: number;
@@ -77,7 +84,7 @@ export default class ARCon extends EventEmitter {
     this.separateMessageTypes = opts.separateMessageTypes ?? false;
     this.loadBans = opts.loadBans ?? false;
 
-    this._players = new PlayerManager();
+    this._players = new _PlayerManager(this);
 
     this._socket = createSocket('udp4');
     this._socket.on('message', (packet) => this._handlePacket(packet));
@@ -136,8 +143,23 @@ export default class ARCon extends EventEmitter {
     this._socket.disconnect();
   }
 
-  public get players() {
-    return [...this._players.cache];
+  /** Get the {@link PlayerManager} */
+  public get playerManager(): PlayerManager {
+    const players = [...this._players.cache];
+    return {
+      players,
+      resolve: this._players.resolve
+    };
+  }
+
+  /**
+   * Sends a command to RCon server.
+   * @param data command to send to RCon server.
+   */
+  public send(data: string) {
+    const packet = this._packetManager.buildBuffer(PacketTypes.COMMAND, data);
+
+    this._send(packet);
   }
 
   /** Process incoming command packet. */
@@ -215,6 +237,7 @@ export default class ARCon extends EventEmitter {
     const lastResponseDelta = Date.now() - this._lastResponseTime.valueOf();
     const lastCommandDelta = Date.now() - this._lastCommandTime.valueOf();
 
+    // Send out a command to keep connection alive.
     if (lastResponseDelta > 5_000 || lastCommandDelta > 40_000) {
       const packet = this._packetManager.buildBuffer(PacketTypes.COMMAND, 'players');
 
@@ -224,6 +247,7 @@ export default class ARCon extends EventEmitter {
       this._lastCommandTime = new Date();
     }
 
+    // RCon server hasn't sent a packet in 10 seconds.
     if (lastResponseDelta > 10_000) {
       this.disconnect();
       this.emit('disconnected', 'no message');
