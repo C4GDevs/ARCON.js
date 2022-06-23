@@ -3,7 +3,7 @@ import EventEmitter from 'events';
 import { MultiPartPacket, Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import Player from '../playerManager/Player';
-import _PlayerManager, { PlayerResolvable } from '../playerManager/PlayerManager';
+import PlayerManager, { IPlayerManager } from '../playerManager/PlayerManager';
 
 interface ConnectionProperies {
   /** IP address to connect to. */
@@ -18,15 +18,6 @@ interface ConnectionProperies {
   separateMessageTypes?: boolean;
   /** Whether bans should be loaded on connection and cached. */
   loadBans?: boolean;
-}
-
-// Restricted version of actual PlayerManager
-// since the user shouldn't use all of it's functions.
-interface PlayerManager {
-  players: Player[];
-  kick(player: Player, reason?: string): void;
-  resolve(player: PlayerResolvable): Player | null;
-  say(message: string, target?: Player): void;
 }
 
 export default interface ARCon {
@@ -47,7 +38,7 @@ export default class ARCon extends EventEmitter {
   public readonly password: string;
 
   /** @readonly Controller for players connected to server. */
-  private readonly _players: _PlayerManager;
+  private readonly _players: PlayerManager;
 
   /** @readonly Port of RCon server. */
   public readonly port: number;
@@ -86,7 +77,7 @@ export default class ARCon extends EventEmitter {
     this.separateMessageTypes = opts.separateMessageTypes ?? false;
     this.loadBans = opts.loadBans ?? false;
 
-    this._players = new _PlayerManager(this);
+    this._players = new PlayerManager(this);
 
     this._socket = createSocket('udp4');
     this._socket.on('message', (packet) => this._handlePacket(packet));
@@ -146,7 +137,7 @@ export default class ARCon extends EventEmitter {
   }
 
   /** Get the {@link PlayerManager} */
-  public get playerManager(): PlayerManager {
+  public get playerManager(): IPlayerManager {
     const players = [...this._players.cache];
     return {
       players,

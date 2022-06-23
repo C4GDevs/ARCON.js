@@ -9,7 +9,17 @@ import Player from './Player';
  */
 export type PlayerResolvable = Player | string | number;
 
-export default class PlayerManager {
+interface PlayerManagerFunctions {
+  kick(player: Player, reason?: string): void;
+  resolve(player: PlayerResolvable): Player | null;
+  say(message: string, target?: Player): void;
+}
+
+export interface IPlayerManager extends PlayerManagerFunctions {
+  players: Player[];
+}
+
+export default class PlayerManager implements PlayerManagerFunctions {
   private readonly _arcon: ARCon;
   private readonly _cache: Set<Player>;
 
