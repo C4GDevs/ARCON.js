@@ -12,7 +12,7 @@ export type PlayerResolvable = Player | string | number;
 interface PlayerManagerFunctions {
   kick(player: Player, reason?: string): void;
   resolve(player: PlayerResolvable): Player | null;
-  say(message: string, target?: Player): void;
+  say(message: string, target: Player): void;
 }
 
 export interface IPlayerManager extends PlayerManagerFunctions {
@@ -60,18 +60,12 @@ export default class PlayerManager implements PlayerManagerFunctions {
   }
 
   /**
-   * Send a message to server or player.
+   * Send a message to player.
    * @param message Text to display.
    * @param target Player to send message to.
    */
-  public say(message: string, target?: Player) {
-    let text: string;
-
-    if (target) {
-      text = `say ${target.id} ${message}`;
-    } else {
-      text = `say -1 ${message}`;
-    }
+  public say(message: string, target: Player) {
+    const text = `say ${target.id} ${message}`;
 
     this._arcon.send(text);
   }
