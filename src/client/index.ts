@@ -52,9 +52,6 @@ export default class ARCon extends EventEmitter {
   /** Is this client currently connected to an RCon server. */
   private _connected: boolean;
 
-  /** Sequence number of packet sent at `_lastCommandTime` */
-  private _heartbeatId: number | null;
-
   /** Time which client last sent a command packet. */
   private _lastCommandTime: Date;
 
@@ -89,7 +86,6 @@ export default class ARCon extends EventEmitter {
 
     this._lastCommandTime = new Date();
     this._lastResponseTime = new Date();
-    this._heartbeatId = null;
 
     setInterval(() => {
       this._heartbeat();
@@ -235,8 +231,6 @@ export default class ARCon extends EventEmitter {
     // Send out a command to keep connection alive.
     if (lastResponseDelta > 5_000 || lastCommandDelta > 40_000) {
       const packet = this._packetManager.buildBuffer(PacketTypes.COMMAND, 'players');
-
-      this._heartbeatId = this._packetManager.buildPacket(packet).sequence;
 
       this._send(packet);
       this._lastCommandTime = new Date();
