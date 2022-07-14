@@ -1,6 +1,6 @@
 import { createSocket, Socket } from 'dgram';
 import EventEmitter from 'events';
-import CommandManager from '../CommandManager/CommandManager';
+import CommandManager from '../commandManager/CommandManager';
 import { MultiPartPacket, Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import Player from '../playerManager/Player';
