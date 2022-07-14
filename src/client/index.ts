@@ -100,7 +100,16 @@ export default class ARCon extends EventEmitter {
     const manager = this._commandManager;
 
     return {
-      sayGlobal: manager.sayGlobal
+      addBan: manager.addBan,
+      admins: manager.admins,
+      bans: manager.bans,
+      loadBans: manager.loadBans,
+      loadEvents: manager.loadEvents,
+      loadScripts: manager.loadScripts,
+      missions: manager.missions,
+      removeBan: manager.removeBan,
+      sayGlobal: manager.sayGlobal,
+      writeBans: manager.writeBans
     };
   }
 
@@ -227,7 +236,6 @@ export default class ARCon extends EventEmitter {
       return;
     }
 
-    // Heartbeat response.
     if (packet.type === PacketTypes.COMMAND) {
       this._commandMessage(packet);
       return;
