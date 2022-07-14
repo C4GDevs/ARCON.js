@@ -1,5 +1,6 @@
 import { createSocket, Socket } from 'dgram';
 import EventEmitter from 'events';
+import CommandManager from '../CommandManager/CommandManager';
 import { MultiPartPacket, Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import Player from '../playerManager/Player';
@@ -49,6 +50,9 @@ export default class ARCon extends EventEmitter {
   /** @readonly Time to wait (in milliseconds) before a connection is aborted. */
   public readonly timeout: number;
 
+  /** @readonly Controller for fetching commands. */
+  private readonly _commandManager: CommandManager;
+
   /** Is this client currently connected to an RCon server. */
   private _connected: boolean;
 
@@ -74,13 +78,13 @@ export default class ARCon extends EventEmitter {
     this.separateMessageTypes = opts.separateMessageTypes ?? false;
     this.loadBans = opts.loadBans ?? false;
 
+    this._commandManager = new CommandManager(this);
     this._players = new PlayerManager(this);
+    this._packetManager = new PacketManager();
 
     this._socket = createSocket('udp4');
     this._socket.on('message', (packet) => this._handlePacket(packet));
     this._socket.on('error', (err) => this.emit('error', err));
-
-    this._packetManager = new PacketManager();
 
     this._connected = false;
 
@@ -90,6 +94,14 @@ export default class ARCon extends EventEmitter {
     setInterval(() => {
       this._heartbeat();
     }, 5_000);
+  }
+
+  public get commands() {
+    const manager = this._commandManager;
+
+    return {
+      sayGlobal: manager.sayGlobal
+    };
   }
 
   public get connected(): boolean {
