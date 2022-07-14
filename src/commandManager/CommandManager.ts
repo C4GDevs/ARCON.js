@@ -8,6 +8,6 @@ export default class CommandManager {
   }
 
   sayGlobal = (message: string) => {
-    this._arcon.send(message);
+    this._arcon.send(`say -1 ${message}`);
   };
 }
