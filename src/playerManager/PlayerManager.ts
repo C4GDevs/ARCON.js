@@ -45,11 +45,11 @@ export default class PlayerManager implements PlayerManagerFunctions {
    * @param player The player to kick.
    * @param reason Text to show the player.
    */
-  public kick(player: Player, reason?: string) {
+  kick = (player: Player, reason?: string) => {
     let text = `kick ${player.id}`;
     if (reason) text += ` ${reason}`;
     this._arcon.send(text);
-  }
+  };
 
   /**
    * Removes a player from the cache.
@@ -64,11 +64,11 @@ export default class PlayerManager implements PlayerManagerFunctions {
    * @param message Text to display.
    * @param target Player to send message to.
    */
-  public say(message: string, target: Player) {
+  say = (message: string, target: Player) => {
     const text = `say ${target.id} ${message}`;
 
     this._arcon.send(text);
-  }
+  };
 
   /**
    * Resolves a {@link PlayerResolvable} to a {@link Player} object.
@@ -81,7 +81,7 @@ export default class PlayerManager implements PlayerManagerFunctions {
    * const player = resolve("77.125.33.126");
    * ```
    */
-  public resolve(player: PlayerResolvable): Player | null {
+  resolve = (player: PlayerResolvable): Player | null => {
     if (player instanceof Player) return player;
 
     const playerList = [...this._cache];
@@ -91,5 +91,5 @@ export default class PlayerManager implements PlayerManagerFunctions {
     if (/^(?>\d{1,3}\.){3}\d{1,3}$/.test(player)) return playerList.find((p) => p.ip === player) || null;
 
     return null;
-  }
+  };
 }
