@@ -184,8 +184,6 @@ export default class ARCon extends EventEmitter {
     // There's no data to process.
     if (!packet.data) return;
 
-    // Commands with responses are "players", "bans", and "missions".
-
     // Always cache player list.
     if (packet.data.startsWith('Players on server')) {
       const players = packet.data.matchAll(
