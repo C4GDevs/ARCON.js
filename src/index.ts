@@ -1,4 +1,4 @@
-import arcon from './client';
+import Arcon from './client';
 import { PacketTypes } from './packetManager/Packet';
 
-export { arcon, PacketTypes };
+export { Arcon, PacketTypes };
