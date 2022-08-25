@@ -302,7 +302,7 @@ export default class ARCon extends EventEmitter {
       return;
     }
 
-    if (packet.data?.endsWith('connected')) {
+    if (packet.data?.endsWith(' connected')) {
       const match = /^Player #(\d+) (.+) \(((?:(?:[0-9](\.|)){1,3}){4}):[0-9]{1,5}\) connected$/.exec(packet.data);
       if (!match) {
         this.emit('error', new Error('Could not parse info of connecting player'));
