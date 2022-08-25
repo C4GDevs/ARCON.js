@@ -314,7 +314,7 @@ export default class ARCon extends EventEmitter {
     }
 
     if (packet.data?.startsWith('Verified GUID')) {
-      const match = /^Verified GUID \(([a-z0-9]{32})\) of player #([0-9]+)$/.exec(packet.data);
+      const match = /^Verified GUID \(([a-z0-9]{32})\) of player #([0-9]+)/.exec(packet.data);
 
       if (!match) {
         this.emit('error', Error('Could not parse guid of connecting player'));
