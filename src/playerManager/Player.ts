@@ -30,7 +30,7 @@ export default class Player {
   }
 
   public set guid(v: string | undefined) {
-    this.guid = v;
+    this._guid = v;
   }
 
   public get lobby() {
