@@ -298,9 +298,6 @@ export default class ARCon extends EventEmitter {
     this._send(response);
 
     this.emit('message', packet.data);
-    if (!this.separateMessageTypes) {
-      return;
-    }
 
     if (packet.data?.endsWith(' connected')) {
       const match = /^Player #(\d+) (.+) \(((?:(?:[0-9](\.|)){1,3}){4}):[0-9]{1,5}\) connected$/.exec(packet.data);
@@ -325,7 +322,7 @@ export default class ARCon extends EventEmitter {
 
       const player = this._players.setGuid(Number(id), guid);
 
-      this.emit('playerConnected', player);
+      if (this.separateMessageTypes) this.emit('playerConnected', player);
     }
 
     if (packet.data?.endsWith('disconnected')) {
@@ -347,7 +344,7 @@ export default class ARCon extends EventEmitter {
 
       this._players.remove(player);
 
-      this.emit('playerDisconnected', player);
+      if (this.separateMessageTypes) this.emit('playerDisconnected', player);
     }
   }
 }
