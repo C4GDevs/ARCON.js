@@ -38,7 +38,7 @@ describe('Connection', () => {
     connection.connect().catch((e) => expect(e).to.equal('Already connected to server'));
   });
 
-  it('Handles messages', async () => {
+  it('Handles messages', () => {
     const manager = connection['_packetManager'];
     const connectionPacket = manager.buildBuffer(
       PacketTypes.SERVER_MESSAGE,
@@ -54,11 +54,9 @@ describe('Connection', () => {
     expect(connection.playerManager.players.length).to.be.greaterThan(0);
 
     connection['_handlePacket'](guidPacket);
-
     expect(connection.playerManager.players[0].guid).not.to.be.undefined;
 
     connection['_handlePacket'](disconnectionPacket);
-
     expect(connection.playerManager.players.length).to.equal(0);
   });
 });
