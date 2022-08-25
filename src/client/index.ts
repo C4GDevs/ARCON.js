@@ -28,7 +28,7 @@ export default interface ARCon {
   on(event: 'error', listener: (error: Error) => void): this;
   on(event: 'message', listener: (message: string) => void): this;
   on(event: 'playerConnected', listener: (message: Player) => void): this;
-  on(event: 'playerDisonnected', listener: (message: Player) => void): this;
+  on(event: 'playerDisconnected', listener: (message: Player) => void): this;
 }
 
 export default class ARCon extends EventEmitter {
