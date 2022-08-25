@@ -317,7 +317,7 @@ export default class ARCon extends EventEmitter {
       const match = /^Verified GUID \(([a-z0-9]{32})\) of player #([0-9]+)/.exec(packet.data);
 
       if (!match) {
-        this.emit('error', Error('Could not parse guid of connecting player'));
+        this.emit('error', new Error('Could not parse guid of connecting player'));
         return;
       }
 
@@ -332,13 +332,20 @@ export default class ARCon extends EventEmitter {
       const match = /^Player #([0-9]+) .+ disconnected$/.exec(packet.data);
 
       if (!match) {
-        this.emit('error', Error('Could not parse id of disconnecting player'));
+        this.emit('error', new Error('Could not parse id of disconnecting player'));
         return;
       }
 
       const [, id] = match;
 
       const player = this._players.resolve(Number(id));
+
+      if (!player) {
+        this.emit('error', new Error('Could not find player to remove'));
+        return;
+      }
+
+      this._players.remove(player);
 
       this.emit('playerDisconnected', player);
     }
