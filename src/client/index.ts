@@ -305,7 +305,7 @@ export default class ARCon extends EventEmitter {
     if (packet.data?.endsWith('connected')) {
       const match = /^Player #(\d+) (.+) \(((?:(?:[0-9](\.|)){1,3}){4}):[0-9]{1,5}\) connected$/.exec(packet.data);
       if (!match) {
-        this.emit('error', new Error('Could not parse guid of connecting player'));
+        this.emit('error', new Error('Could not parse info of connecting player'));
         return;
       }
       const [, id, name, ip] = match;
@@ -323,7 +323,7 @@ export default class ARCon extends EventEmitter {
 
       const [, guid, id] = match;
 
-      const player = this._players.setGuid(id, guid);
+      const player = this._players.setGuid(Number(id), guid);
 
       this.emit('playerConnected', player);
     }
