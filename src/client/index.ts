@@ -297,8 +297,8 @@ export default class ARCon extends EventEmitter {
     const response = this._packetManager.buildResponseBuffer(packet.sequence);
     this._send(response);
 
+    this.emit('message', packet.data);
     if (!this.separateMessageTypes) {
-      this.emit('message', packet.data);
       return;
     }
 
