@@ -70,6 +70,16 @@ export default class PlayerManager implements PlayerManagerFunctions {
     this._arcon.send(text);
   };
 
+  setGuid = (player: PlayerResolvable, guid: string) => {
+    const p = this.resolve(player);
+
+    if (!p) throw new Error('Could not resolve player with given info');
+
+    p.guid = guid;
+
+    return p;
+  };
+
   /**
    * Resolves a {@link PlayerResolvable} to a {@link Player} object.
    *

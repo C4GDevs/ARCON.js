@@ -26,6 +26,8 @@ export default interface ARCon {
   on(event: 'connected', listener: (loggedIn: boolean) => void): this;
   on(event: 'disconnected', listener: () => void): this;
   on(event: 'message', listener: (message: string) => void): this;
+  on(event: 'playerConnected', listener: (message: Player) => void): this;
+  on(event: 'playerDisonnected', listener: (message: Player) => void): this;
 }
 
 export default class ARCon extends EventEmitter {
@@ -299,6 +301,36 @@ export default class ARCon extends EventEmitter {
       return;
     }
 
-    // Process messages further.
+    if (packet.data?.endsWith('connected')) {
+      const match = /^Player #(\d+) (.+) \(((?:(?:[0-9](\.|)){1,3}){4}):[0-9]{1,5}\) connected$/.exec(packet.data);
+      if (!match) throw new Error('Could not parse guid of connecting player');
+      const [, id, name, ip] = match;
+
+      this._players.add(new Player({ id: Number(id), name, ip, lobby: true }));
+    }
+
+    if (packet.data?.startsWith('Verified GUID')) {
+      const match = /^Verified GUID \(([a-z0-9]{32})\) of player #([0-9]+)$/.exec(packet.data);
+
+      if (!match) throw new Error('Could not parse guid of connecting player');
+
+      const [, guid] = match;
+
+      const player = this._players.setGuid(guid[2], guid[1]);
+
+      this.emit('playerConnected', player);
+    }
+
+    if (packet.data?.endsWith('disconnected')) {
+      const match = /^Player #([0-9]+) .+ disconnected$/.exec(packet.data);
+
+      if (!match) throw new Error('Could not parse id of disconnecting player');
+
+      const [, id] = match;
+
+      const player = this._players.resolve(Number(id));
+
+      this.emit('playerDisconnected', player);
+    }
   }
 }
