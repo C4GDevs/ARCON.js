@@ -98,7 +98,7 @@ export default class PlayerManager implements PlayerManagerFunctions {
 
     if (typeof player === 'number') return playerList.find((p) => p.id === player) || null;
     if (/^[0-9a-z]{32}$/.test(player)) return playerList.find((p) => p.guid === player) || null;
-    if (/^(?>\d{1,3}\.){3}\d{1,3}$/.test(player)) return playerList.find((p) => p.ip === player) || null;
+    if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(player)) return playerList.find((p) => p.ip === player) || null;
 
     return null;
   };

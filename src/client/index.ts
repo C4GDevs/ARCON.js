@@ -321,9 +321,9 @@ export default class ARCon extends EventEmitter {
         return;
       }
 
-      const [, guid] = match;
+      const [, guid, id] = match;
 
-      const player = this._players.setGuid(guid[2], guid[1]);
+      const player = this._players.setGuid(id, guid);
 
       this.emit('playerConnected', player);
     }
