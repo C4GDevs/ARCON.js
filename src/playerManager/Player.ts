@@ -40,4 +40,15 @@ export default class Player {
   public set lobby(v: boolean) {
     this._lobby = this.lobby;
   }
+
+  public toJSON() {
+    const entries = Object.entries(this);
+    const output: { [key: string]: unknown } = {};
+
+    for (const [key, value] of entries) {
+      output[key] = value;
+    }
+
+    return output;
+  }
 }
