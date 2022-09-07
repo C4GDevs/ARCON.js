@@ -209,7 +209,11 @@ export default class ARCon extends EventEmitter {
           continue;
         }
 
-        this._players.add(new Player({ id, ip, guid, name, lobby }));
+        const newPlayer = new Player({ id, ip, guid, name, lobby });
+
+        this._players.add(newPlayer);
+
+        if (this.separateMessageTypes) this.emit('playerConnected', newPlayer);
       }
 
       return;
