@@ -203,9 +203,6 @@ export default class ARCon extends EventEmitter {
 
         if (existingPlayer) {
           existingPlayer.lobby = lobby;
-
-          this._players.remove(existingPlayer);
-          this._players.add(existingPlayer);
           continue;
         }
 

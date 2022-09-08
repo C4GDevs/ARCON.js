@@ -38,7 +38,7 @@ export default class Player {
   }
 
   public set lobby(v: boolean) {
-    this._lobby = this.lobby;
+    this._lobby = v;
   }
 
   public toJSON() {

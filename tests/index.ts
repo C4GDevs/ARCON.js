@@ -50,6 +50,16 @@ describe('Connection', () => {
     );
     const disconnectionPacket = manager.buildBuffer(PacketTypes.SERVER_MESSAGE, 'Player #0 Tren disconnected');
 
+    const playerListPacket = manager.buildBuffer(
+      PacketTypes.COMMAND,
+      'Players on server:\n1 127.0.0.1:2302    100  5ddabbcb89ca69b98da05b337e4aaa27(OK) Testing (Lobby)'
+    );
+
+    const playerListPacket2 = manager.buildBuffer(
+      PacketTypes.COMMAND,
+      'Players on server:\n1 127.0.0.1:2302    100  5ddabbcb89ca69b98da05b337e4aaa27(OK) Testing'
+    );
+
     connection['_handlePacket'](connectionPacket);
     expect(connection.playerManager.players.length).to.be.greaterThan(0);
 
@@ -58,5 +68,13 @@ describe('Connection', () => {
 
     connection['_handlePacket'](disconnectionPacket);
     expect(connection.playerManager.players.length).to.equal(0);
+
+    connection['_handlePacket'](playerListPacket);
+    expect(connection.playerManager.players.length).to.equal(1);
+    expect(connection.playerManager.players[0].lobby).to.be.true;
+
+    connection['_handlePacket'](playerListPacket2);
+    expect(connection.playerManager.players.length).to.equal(1);
+    expect(connection.playerManager.players[0].lobby).to.be.false;
   });
 });
