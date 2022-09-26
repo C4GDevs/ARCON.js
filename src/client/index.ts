@@ -33,7 +33,7 @@ export enum BELogTypes {
   WaypointStatement = 'WaypointStatement'
 }
 
-interface BELog {
+export interface BELog {
   type: BELogTypes;
   filter: number;
   player: Player;
