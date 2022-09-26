@@ -21,7 +21,7 @@ export enum BELogTypes {
   PublicVariableVal = 'PublicVariableVal',
   RemoteControl = 'RemoteControl',
   RemoteExec = 'RemoteExec',
-  Script = 'Scripts',
+  Script = 'Script',
   SelectPlayer = 'SelectPlayer',
   SetDamage = 'SetDamage',
   SetPos = 'SetPos',
