@@ -60,6 +60,11 @@ describe('Connection', () => {
       'Players on server:\n1 127.0.0.1:2302    100  5ddabbcb89ca69b98da05b337e4aaa27(OK) Testing'
     );
 
+    const belogPacket = manager.buildBuffer(
+      PacketTypes.SERVER_MESSAGE,
+      'RemoteExec Log: #1 Testing (5ddabbcb89ca69b98da05b337e4aaa27) - #0 "testvalue"'
+    );
+
     connection['_handlePacket'](connectionPacket);
     expect(connection.playerManager.players.length).to.be.greaterThan(0);
 
@@ -76,5 +81,13 @@ describe('Connection', () => {
     connection['_handlePacket'](playerListPacket2);
     expect(connection.playerManager.players.length).to.equal(1);
     expect(connection.playerManager.players[0].lobby).to.be.false;
+
+    connection.once('belog', (log) => {
+      expect(log.type).to.equal('RemoteExec');
+      expect(log.filter).to.equal(0);
+      expect(log.data).to.equal('"testvalue"');
+    });
+
+    connection['_handlePacket'](belogPacket);
   });
 });

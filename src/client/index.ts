@@ -6,6 +6,40 @@ import PacketManager from '../packetManager/PacketManager';
 import Player from '../playerManager/Player';
 import PlayerManager, { IPlayerManager } from '../playerManager/PlayerManager';
 
+export enum BELogTypes {
+  AddBackpackCargo = 'AddBackpackCargo',
+  AddForce = 'AddForce',
+  AddMagazineCargo = 'AddMagazineCargo',
+  AddTorque = 'AddTorque',
+  AddWeaponCargo = 'AddWeaponCargo',
+  AttachTo = 'AttachTo',
+  CreateVehicle = 'CreateVehicle',
+  DeleteVehicle = 'DeleteVehicle',
+  MoveOut = 'MoveOut',
+  MPEventHandler = 'MPEventHandler', // Unsure, may not be correct
+  PublicVariable = 'PublicVariable',
+  PublicVariableVal = 'PublicVariableVal',
+  RemoteControl = 'RemoteControl',
+  RemoteExec = 'RemoteExec',
+  Scripts = 'Scripts',
+  SelectPlayer = 'SelectPlayer',
+  SetDamage = 'SetDamage',
+  SetPos = 'SetPos',
+  SetVariable = 'SetVariable',
+  SetVariableVal = 'SetVariableVal',
+  SetVisibility = 'SetVisibility',
+  TeamSwitch = 'TeamSwitch',
+  WaypointCondition = 'WaypointCondition',
+  WaypointStatement = 'WaypointStatement'
+}
+
+interface BELog {
+  type: BELogTypes;
+  filter: number;
+  player: Player;
+  data: string;
+}
+
 interface ConnectionProperies {
   /** IP address to connect to. */
   ip: string;
@@ -22,6 +56,7 @@ interface ConnectionProperies {
 }
 
 export default interface ARCon {
+  on(event: 'belog', listener: (data: BELog) => void): this;
   on(event: 'command', listener: (data: string) => void): this;
   on(event: 'connected', listener: (loggedIn: boolean) => void): this;
   on(event: 'disconnected', listener: () => void): this;
@@ -302,7 +337,10 @@ export default class ARCon extends EventEmitter {
 
     this.emit('message', packet.data);
 
-    if (packet.data?.endsWith(' connected')) {
+    if (!packet.data) return;
+
+    // Initial player connection
+    if (packet.data.endsWith(' connected')) {
       const match = /^Player #(\d+) (.+) \(((?:(?:[0-9](\.|)){1,3}){4}):[0-9]{1,5}\) connected$/.exec(packet.data);
       if (!match) {
         this.emit('error', new Error('Could not parse info of connecting player'));
@@ -313,7 +351,8 @@ export default class ARCon extends EventEmitter {
       this._players.add(new Player({ id: Number(id), name, ip, lobby: true }));
     }
 
-    if (packet.data?.startsWith('Verified GUID')) {
+    // Player has verified BE-GUID
+    if (packet.data.startsWith('Verified GUID')) {
       const match = /^Verified GUID \(([a-z0-9]{32})\) of player #([0-9]+)/.exec(packet.data);
 
       if (!match) {
@@ -323,12 +362,17 @@ export default class ARCon extends EventEmitter {
 
       const [, guid, id] = match;
 
-      const player = this._players.setGuid(Number(id), guid);
+      try {
+        const player = this._players.setGuid(Number(id), guid);
 
-      if (this.separateMessageTypes) this.emit('playerConnected', player);
+        if (this.separateMessageTypes) this.emit('playerConnected', player);
+      } catch (error) {
+        this.emit('error', error);
+      }
     }
 
-    if (packet.data?.endsWith('disconnected')) {
+    // Player disconnected
+    if (packet.data.endsWith('disconnected')) {
       const match = /^Player #([0-9]+) .+ disconnected$/.exec(packet.data);
 
       if (!match) {
@@ -348,6 +392,33 @@ export default class ARCon extends EventEmitter {
       this._players.remove(player);
 
       if (this.separateMessageTypes) this.emit('playerDisconnected', player);
+    }
+
+    // BELog
+    if (/^[A-Z][A-Za-z]+ Log/.test(packet.data)) {
+      const match = /^([A-Za-z]+) Log: #(\d+) .+ \([a-z0-9]{32}\) - #(\d+) (.+)/s.exec(packet.data);
+
+      if (!match) {
+        this.emit('error', new Error('Could not parse belog'));
+        return;
+      }
+
+      const [, type, playerId, filterIndex, logdata] = match;
+
+      const player = this._players.resolve(Number(playerId));
+
+      if (!player) {
+        this.emit('error', new Error('Could not find player for belog'));
+        return;
+      }
+
+      if (this.separateMessageTypes)
+        this.emit('belog', {
+          type,
+          filter: Number(filterIndex),
+          player,
+          data: logdata
+        });
     }
   }
 }
