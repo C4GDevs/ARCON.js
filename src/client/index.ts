@@ -394,8 +394,33 @@ export default class ARCon extends EventEmitter {
       if (this.separateMessageTypes) this.emit('playerDisconnected', player);
     }
 
-    // BELog
+    // Player was kicked for log restrictions
+    if (packet.data.includes('kicked by BattlEye')) {
+      const match = /^Player #([0-9]+) .+ kicked by BattlEye/.exec(packet.data);
+
+      if (!match) {
+        this.emit('error', new Error('Could not parse id of kicked player'));
+        return;
+      }
+
+      const [, id] = match;
+
+      const player = this._players.resolve(Number(id));
+
+      if (!player) {
+        this.emit('error', new Error('Could not find kicked player'));
+        return;
+      }
+
+      this._players.remove(player);
+
+      if (this.separateMessageTypes) {
+        this.emit('playerDisconnected', player);
+      }
+    }
+
     if (/^[A-Z][A-Za-z]+ Log/.test(packet.data)) {
+      // BELog
       const match = /^([A-Za-z]+) Log: #(\d+) .+ \([a-z0-9]{32}\) - #(\d+) (.+)/s.exec(packet.data);
 
       if (!match) {

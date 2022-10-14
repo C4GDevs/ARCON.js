@@ -65,6 +65,11 @@ describe('Connection', () => {
       'RemoteExec Log: #1 Testing (5ddabbcb89ca69b98da05b337e4aaa27) - #0 "testvalue"'
     );
 
+    const kickPacket = manager.buildBuffer(
+      PacketTypes.SERVER_MESSAGE,
+      'Player #1 Testing (5ddabbcb89ca69b98da05b337e4aaa27) has been kicked by BattlEye: RemoteExec Restriction #0'
+    );
+
     connection['_handlePacket'](connectionPacket);
     expect(connection.playerManager.players.length).to.be.greaterThan(0);
 
@@ -87,7 +92,9 @@ describe('Connection', () => {
       expect(log.filter).to.equal(0);
       expect(log.data).to.equal('"testvalue"');
     });
-
     connection['_handlePacket'](belogPacket);
+
+    connection['_handlePacket'](kickPacket);
+    expect(connection.playerManager.players.length).to.equal(0);
   });
 });
