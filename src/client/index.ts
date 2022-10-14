@@ -414,9 +414,7 @@ export default class ARCon extends EventEmitter {
 
       this._players.remove(player);
 
-      if (this.separateMessageTypes) {
-        this.emit('playerDisconnected', player);
-      }
+      if (this.separateMessageTypes) this.emit('playerDisconnected', player);
     }
 
     if (/^[A-Z][A-Za-z]+ Log/.test(packet.data)) {
