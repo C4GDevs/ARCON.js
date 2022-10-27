@@ -5,7 +5,7 @@ const connection = new Arcon({
   ip: '140.82.114.3',
   port: 2333,
   password: 'test',
-  timeout: 100,
+  timeout: 1,
   separateMessageTypes: true
 });
 
