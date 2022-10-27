@@ -59,7 +59,7 @@ export default interface ARCon {
   on(event: 'belog', listener: (data: BELog) => void): this;
   on(event: 'command', listener: (data: string) => void): this;
   on(event: 'connected', listener: (loggedIn: boolean) => void): this;
-  on(event: 'disconnected', listener: () => void): this;
+  on(event: 'disconnected', listener: (reason: string) => void): this;
   on(event: 'error', listener: (error: Error) => void): this;
   on(event: 'message', listener: (message: string) => void): this;
   on(event: 'playerConnected', listener: (message: Player) => void): this;
