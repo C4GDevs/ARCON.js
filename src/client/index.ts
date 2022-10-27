@@ -155,31 +155,31 @@ export default class ARCon extends EventEmitter {
     return this._connected;
   }
 
-  /**
-   * Initiates connection with RCon server.
-   * @example
-   * ```ts
-   * arcon.connect()
-   *  .then(() => console.log('connected'))
-   *  .catch((reason) => console.error(reason))
-   * ```
-   */
+  /** Initiates connection with RCon server. */
   public connect() {
-    return new Promise<void>((resolve, reject) => {
-      if (this._connected) reject('Already connected to server');
+    if (this._connected) {
+      this.emit('error', 'Tried to connect while already connected');
+      return;
+    }
 
+    this._socket.connect(this.port, this.ip, async (err?: Error) => {
+      if (err) {
+        this.emit('error', `Could not connect to server (${err.message})`);
+        return;
+      }
+
+      /**
+       * This occurs when the RCON port is being blocked on the remote server.
+       * DGRAM socket will not inform us that we couldn't connect, so we do it manually.
+       */
       setTimeout(() => {
-        if (!this._connected) reject('Could not connect to server');
+        if (this._connected) return;
+
+        this._socket.disconnect();
+        this.emit('error', 'Could not connect to server (Port closed)');
       }, this.timeout);
 
-      this._socket.connect(this.port, this.ip, async (err?: Error) => {
-        if (err) {
-          reject('Could not connect to server');
-        }
-
-        this._login();
-        resolve();
-      });
+      this._login();
     });
   }
 

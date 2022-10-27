@@ -13,8 +13,9 @@ const successResponsePacket = Buffer.from([0x42, 0x45, 0x69, 0xdd, 0xde, 0x36, 0
 const failLoginPacket = Buffer.from([0x42, 0x45, 0xff, 0xed, 0xd9, 0x41, 0xff, 0x00, 0x00]);
 
 describe('Connection', () => {
-  it('Rejects on failed connection', async () => {
-    connection.connect().catch((e) => expect(e).to.equal('Could not connect to server'));
+  it('Rejects on failed connection', () => {
+    connection.once('error', (e) => expect(e).to.equal('Could not connect to server (Port closed)'));
+    connection.connect();
   });
 
   it('Rejects on incorrect password', () => {
@@ -34,8 +35,11 @@ describe('Connection', () => {
     connection['_handlePacket'](successResponsePacket);
   });
 
-  it('Errors on multiple connections', async () => {
-    connection.connect().catch((e) => expect(e).to.equal('Already connected to server'));
+  connection.removeAllListeners('error');
+
+  it('Errors on multiple connections', () => {
+    connection.once('error', (e) => expect(e).to.equal('Tried to connect while already connected'));
+    connection.connect();
   });
 
   it('Handles messages', () => {
