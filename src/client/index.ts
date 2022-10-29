@@ -227,7 +227,7 @@ export default class ARCon extends EventEmitter {
     // Always cache player list.
     if (packet.data.startsWith('Players on server')) {
       const players = packet.data.matchAll(
-        /(\d+) +([0-9.]+):\d+ +\d+ +([a-z0-9]{32})\([A-Z]+\) (.+?)(?:$| \((Lobby)\)$)/gm
+        /(\d+) +([0-9.]+):\d+ +[-\d]+ +([a-z0-9]{32})\([A-Z]+\) (.+?)(?:$| \((Lobby)\)$)/gm
       );
 
       for (const player of players) {
