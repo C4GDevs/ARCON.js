@@ -391,9 +391,9 @@ export default class ARCon extends EventEmitter {
         return;
       }
 
-      this._players.remove(player);
-
       const copy = Object.assign({}, player);
+
+      this._players.remove(player);
 
       if (this.separateMessageTypes) this.emit('playerDisconnected', copy);
     }
@@ -416,9 +416,9 @@ export default class ARCon extends EventEmitter {
         return;
       }
 
-      this._players.remove(player);
-
       const copy = Object.assign({}, player);
+
+      this._players.remove(player);
 
       if (this.separateMessageTypes) this.emit('playerDisconnected', copy);
     }
