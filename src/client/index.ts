@@ -195,7 +195,7 @@ export default class ARCon extends EventEmitter {
 
   /** Get the {@link PlayerManager} */
   public get playerManager(): IPlayerManager {
-    const players = [...this._players.cache];
+    const players = [...this._players.cache.values()];
     return {
       players,
       kick: this._players.kick,
@@ -232,9 +232,7 @@ export default class ARCon extends EventEmitter {
         /(\d+) +([0-9.]+):\d+ +[-\d]+ +([a-z0-9]{32})\([A-Z]+\) (.+?)(?:$| \((Lobby)\)$)/gm
       );
 
-      const cache = [...this._players.cache];
-
-      this._players.cache.clear();
+      const newPlayerList: Player[] = [];
 
       for (const player of players) {
         const [, idstr, ip, guid, name, inLobby] = player;
@@ -242,18 +240,25 @@ export default class ARCon extends EventEmitter {
         const lobby = inLobby === 'Lobby';
         const id = Number(idstr);
 
-        const newPlayer = new Player({ id, ip, guid, name, lobby });
+        let playerObject = this._players.resolve(id);
 
-        this._players.cache.add(newPlayer);
+        if (!playerObject) {
+          playerObject = new Player({ id, ip, name, guid, lobby });
+          this.emit('playerConnected', playerObject);
+          this._players.add(playerObject);
+        } else {
+          playerObject.lobby = lobby;
+        }
+
+        newPlayerList.push(playerObject);
       }
 
-      const newCache = [...this._players.cache];
-
-      const newPlayers = newCache.filter((x) => !cache.find((y) => y.id === x.id));
-      const disconnectedPlayers = cache.filter((x) => !newCache.find((y) => x.id === y.id));
-
-      newPlayers.forEach((p) => this.emit('playerConnected', p));
-      disconnectedPlayers.forEach((p) => this.emit('playerDisconnected', p));
+      this._players.cache.forEach((item) => {
+        if (!newPlayerList.find((np) => item.guid === np.guid)) {
+          this.emit('playerDisconnected', item);
+          this._players.remove(item);
+        }
+      });
 
       return;
     }

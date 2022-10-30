@@ -21,11 +21,11 @@ export interface IPlayerManager extends PlayerManagerFunctions {
 
 export default class PlayerManager implements PlayerManagerFunctions {
   private readonly _arcon: ARCon;
-  private readonly _cache: Set<Player>;
+  private readonly _cache: Map<string, Player>;
 
   constructor(arcon: ARCon) {
     this._arcon = arcon;
-    this._cache = new Set();
+    this._cache = new Map();
   }
 
   get cache() {
@@ -37,7 +37,7 @@ export default class PlayerManager implements PlayerManagerFunctions {
    * @param player The player to add.
    */
   public add(player: Player) {
-    this._cache.add(player);
+    this._cache.set(player.guid, player);
   }
 
   /**
@@ -56,7 +56,7 @@ export default class PlayerManager implements PlayerManagerFunctions {
    * @param player The player to remove.
    */
   public remove(player: Player) {
-    this._cache.delete(player);
+    this._cache.delete(player.guid);
   }
 
   /**
@@ -94,7 +94,7 @@ export default class PlayerManager implements PlayerManagerFunctions {
   resolve = (player: PlayerResolvable): Player | null => {
     if (player instanceof Player) return player;
 
-    const playerList = [...this._cache];
+    const playerList = [...this._cache.values()];
 
     if (typeof player === 'number') return playerList.find((p) => p.id === player) || null;
     if (/^[0-9a-z]{32}$/.test(player)) return playerList.find((p) => p.guid === player) || null;
