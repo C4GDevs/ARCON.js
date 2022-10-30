@@ -83,6 +83,11 @@ export default class PacketManager {
     return Buffer.from(header);
   }
 
+  public reset() {
+    this._sequence = -1;
+    this._packetParts.clear();
+  }
+
   private _getNextSequence() {
     return ++this._sequence % 256;
   }

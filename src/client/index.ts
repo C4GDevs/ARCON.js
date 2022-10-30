@@ -131,7 +131,7 @@ export default class ARCon extends EventEmitter {
 
     setInterval(() => {
       this._heartbeat();
-    }, 5_000);
+    }, 1_000);
   }
 
   public get commands() {
@@ -189,6 +189,8 @@ export default class ARCon extends EventEmitter {
 
     this._connected = false;
     this._socket.disconnect();
+
+    this._packetManager.reset();
   }
 
   /** Get the {@link PlayerManager} */
@@ -288,7 +290,7 @@ export default class ARCon extends EventEmitter {
     const lastCommandDelta = Date.now() - this._lastCommandTime.valueOf();
 
     // Send out a command to keep connection alive.
-    if (lastResponseDelta > 5_000 || lastCommandDelta > 40_000) {
+    if (lastResponseDelta > 5_000 || lastCommandDelta > 20_000) {
       const packet = this._packetManager.buildBuffer(PacketTypes.COMMAND, 'players');
 
       this._send(packet);
