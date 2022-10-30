@@ -238,7 +238,7 @@ export default class ARCon extends EventEmitter {
         const lobby = inLobby === 'Lobby';
         const id = Number(idstr);
 
-        const existingPlayer = this._players.resolve(id);
+        const existingPlayer = this._players.resolve(id) || this._players.resolve(guid);
 
         if (existingPlayer) {
           existingPlayer.lobby = lobby;
@@ -393,7 +393,9 @@ export default class ARCon extends EventEmitter {
 
       this._players.remove(player);
 
-      if (this.separateMessageTypes) this.emit('playerDisconnected', player);
+      const copy = Object.assign({}, player);
+
+      if (this.separateMessageTypes) this.emit('playerDisconnected', copy);
     }
 
     // Player was kicked for log restrictions
@@ -416,7 +418,9 @@ export default class ARCon extends EventEmitter {
 
       this._players.remove(player);
 
-      if (this.separateMessageTypes) this.emit('playerDisconnected', player);
+      const copy = Object.assign({}, player);
+
+      if (this.separateMessageTypes) this.emit('playerDisconnected', copy);
     }
 
     if (/^[A-Z][A-Za-z]+ Log/.test(packet.data)) {
