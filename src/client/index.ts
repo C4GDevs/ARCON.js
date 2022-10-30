@@ -5,6 +5,7 @@ import { MultiPartPacket, Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import Player from '../playerManager/Player';
 import PlayerManager, { IPlayerManager } from '../playerManager/PlayerManager';
+import { clone } from 'lodash';
 
 export enum BELogTypes {
   AddBackpackCargo = 'AddBackpackCargo',
@@ -391,7 +392,7 @@ export default class ARCon extends EventEmitter {
         return;
       }
 
-      const copy = Object.assign({}, player);
+      const copy = clone(player);
 
       this._players.remove(player);
 
@@ -416,7 +417,7 @@ export default class ARCon extends EventEmitter {
         return;
       }
 
-      const copy = Object.assign({}, player);
+      const copy = clone(player);
 
       this._players.remove(player);
 
