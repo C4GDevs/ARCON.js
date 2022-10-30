@@ -1,6 +1,6 @@
 interface PlayerOptions {
   name: string;
-  guid?: string;
+  guid: string;
   id: number;
   ip: string;
   lobby: boolean;
@@ -12,7 +12,7 @@ export default class Player {
   public readonly ip: string;
   public readonly connectedAt: Date;
 
-  private _guid?: string;
+  private _guid: string;
   private _lobby: boolean;
 
   constructor({ name, guid, id, ip, lobby }: PlayerOptions) {
@@ -29,7 +29,7 @@ export default class Player {
     return this._guid;
   }
 
-  public set guid(v: string | undefined) {
+  public set guid(v: string) {
     this._guid = v;
   }
 

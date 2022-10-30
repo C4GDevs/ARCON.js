@@ -5,7 +5,6 @@ import { MultiPartPacket, Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import Player from '../playerManager/Player';
 import PlayerManager, { IPlayerManager } from '../playerManager/PlayerManager';
-import { clone } from 'lodash';
 
 export enum BELogTypes {
   AddBackpackCargo = 'AddBackpackCargo',
@@ -132,7 +131,7 @@ export default class ARCon extends EventEmitter {
 
     setInterval(() => {
       this._heartbeat();
-    }, 1_000);
+    }, 500);
   }
 
   public get commands() {
@@ -233,25 +232,28 @@ export default class ARCon extends EventEmitter {
         /(\d+) +([0-9.]+):\d+ +[-\d]+ +([a-z0-9]{32})\([A-Z]+\) (.+?)(?:$| \((Lobby)\)$)/gm
       );
 
+      const cache = [...this._players.cache];
+
+      this._players.cache.clear();
+
       for (const player of players) {
         const [, idstr, ip, guid, name, inLobby] = player;
 
         const lobby = inLobby === 'Lobby';
         const id = Number(idstr);
 
-        const existingPlayer = this._players.resolve(id) || this._players.resolve(guid);
-
-        if (existingPlayer) {
-          existingPlayer.lobby = lobby;
-          continue;
-        }
-
         const newPlayer = new Player({ id, ip, guid, name, lobby });
 
-        this._players.add(newPlayer);
-
-        if (this.separateMessageTypes) this.emit('playerConnected', newPlayer);
+        this._players.cache.add(newPlayer);
       }
+
+      const newCache = [...this._players.cache];
+
+      const newPlayers = newCache.filter((x) => !cache.find((y) => y.id === x.id));
+      const disconnectedPlayers = cache.filter((x) => !newCache.find((y) => x.id === y.id));
+
+      newPlayers.forEach((p) => this.emit('playerConnected', p));
+      disconnectedPlayers.forEach((p) => this.emit('playerDisconnected', p));
 
       return;
     }
@@ -291,7 +293,7 @@ export default class ARCon extends EventEmitter {
     const lastCommandDelta = Date.now() - this._lastCommandTime.valueOf();
 
     // Send out a command to keep connection alive.
-    if (lastResponseDelta > 5_000 || lastCommandDelta > 20_000) {
+    if (lastCommandDelta > 5_000) {
       const packet = this._packetManager.buildBuffer(PacketTypes.COMMAND, 'players');
 
       this._send(packet);
@@ -341,88 +343,6 @@ export default class ARCon extends EventEmitter {
     this.emit('message', packet.data);
 
     if (!packet.data) return;
-
-    // Initial player connection
-    if (packet.data.endsWith(' connected')) {
-      const match = /^Player #(\d+) (.+) \(((?:(?:[0-9](\.|)){1,3}){4}):[0-9]{1,5}\) connected$/.exec(packet.data);
-      if (!match) {
-        this.emit('error', new Error('Could not parse info of connecting player'));
-        return;
-      }
-      const [, id, name, ip] = match;
-
-      this._players.add(new Player({ id: Number(id), name, ip, lobby: true }));
-    }
-
-    // Player has verified BE-GUID
-    if (packet.data.startsWith('Verified GUID')) {
-      const match = /^Verified GUID \(([a-z0-9]{32})\) of player #([0-9]+)/.exec(packet.data);
-
-      if (!match) {
-        this.emit('error', new Error('Could not parse guid of connecting player'));
-        return;
-      }
-
-      const [, guid, id] = match;
-
-      try {
-        const player = this._players.setGuid(Number(id), guid);
-
-        if (this.separateMessageTypes) this.emit('playerConnected', player);
-      } catch (error) {
-        this.emit('error', error);
-      }
-    }
-
-    // Player disconnected
-    if (packet.data.endsWith('disconnected')) {
-      const match = /^Player #([0-9]+) .+ disconnected$/.exec(packet.data);
-
-      if (!match) {
-        this.emit('error', new Error('Could not parse id of disconnecting player'));
-        return;
-      }
-
-      const [, id] = match;
-
-      const player = this._players.resolve(Number(id));
-
-      if (!player) {
-        this.emit('error', new Error('Could not find player to remove'));
-        return;
-      }
-
-      const copy = clone(player);
-
-      this._players.remove(player);
-
-      if (this.separateMessageTypes) this.emit('playerDisconnected', copy);
-    }
-
-    // Player was kicked for log restrictions
-    if (packet.data.includes('kicked by BattlEye')) {
-      const match = /^Player #([0-9]+) .+ kicked by BattlEye/.exec(packet.data);
-
-      if (!match) {
-        this.emit('error', new Error('Could not parse id of kicked player'));
-        return;
-      }
-
-      const [, id] = match;
-
-      const player = this._players.resolve(Number(id));
-
-      if (!player) {
-        this.emit('error', new Error('Could not find kicked player'));
-        return;
-      }
-
-      const copy = clone(player);
-
-      this._players.remove(player);
-
-      if (this.separateMessageTypes) this.emit('playerDisconnected', copy);
-    }
 
     if (/^[A-Z][A-Za-z]+ Log/.test(packet.data)) {
       // BELog

@@ -1,6 +1,6 @@
 {
   "name": "arcon.js",
-  "version": "2.0.27",
+  "version": "2.0.28",
   "description": "An RCON client library for Arma III",
   "license": "MIT",
   "keywords": [
@@ -46,7 +46,6 @@
     "typescript": "^4.5.5"
   },
   "dependencies": {
-    "buffer-crc32": "^0.2.13",
-    "lodash": "^4.17.21"
+    "buffer-crc32": "^0.2.13"
   }
 }

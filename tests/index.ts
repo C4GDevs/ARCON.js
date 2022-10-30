@@ -44,15 +44,6 @@ describe('Connection', () => {
 
   it('Handles messages', () => {
     const manager = connection['_packetManager'];
-    const connectionPacket = manager.buildBuffer(
-      PacketTypes.SERVER_MESSAGE,
-      'Player #0 Tren (37.158.225.96:9) connected'
-    );
-    const guidPacket = manager.buildBuffer(
-      PacketTypes.SERVER_MESSAGE,
-      'Verified GUID (fec4444cd6c294037444ca480f3f08de) of player #0 Tren'
-    );
-    const disconnectionPacket = manager.buildBuffer(PacketTypes.SERVER_MESSAGE, 'Player #0 Tren disconnected');
 
     const playerListPacket = manager.buildBuffer(
       PacketTypes.COMMAND,
@@ -69,20 +60,6 @@ describe('Connection', () => {
       'RemoteExec Log: #1 Testing (5ddabbcb89ca69b98da05b337e4aaa27) - #0 "testvalue"'
     );
 
-    const kickPacket = manager.buildBuffer(
-      PacketTypes.SERVER_MESSAGE,
-      'Player #1 Testing (5ddabbcb89ca69b98da05b337e4aaa27) has been kicked by BattlEye: RemoteExec Restriction #0'
-    );
-
-    connection['_handlePacket'](connectionPacket);
-    expect(connection.playerManager.players.length).to.be.greaterThan(0);
-
-    connection['_handlePacket'](guidPacket);
-    expect(connection.playerManager.players[0].guid).not.to.be.undefined;
-
-    connection['_handlePacket'](disconnectionPacket);
-    expect(connection.playerManager.players.length).to.equal(0);
-
     connection['_handlePacket'](playerListPacket);
     expect(connection.playerManager.players.length).to.equal(1);
     expect(connection.playerManager.players[0].lobby).to.be.true;
@@ -97,8 +74,5 @@ describe('Connection', () => {
       expect(log.data).to.equal('"testvalue"');
     });
     connection['_handlePacket'](belogPacket);
-
-    connection['_handlePacket'](kickPacket);
-    expect(connection.playerManager.players.length).to.equal(0);
   });
 });
