@@ -273,21 +273,25 @@ export default class ARCon extends EventEmitter {
   private _handlePacket(buf: Buffer) {
     this._lastResponseTime = new Date();
 
-    const packet = this._packetManager.buildPacket(buf);
+    try {
+      const packet = this._packetManager.buildPacket(buf);
 
-    if (packet.type === PacketTypes.LOGIN) {
-      this._loginMessage(packet);
-      return;
-    }
+      if (packet.type === PacketTypes.LOGIN) {
+        this._loginMessage(packet);
+        return;
+      }
 
-    if (packet.type === PacketTypes.SERVER_MESSAGE) {
-      this._serverMessage(packet);
-      return;
-    }
+      if (packet.type === PacketTypes.SERVER_MESSAGE) {
+        this._serverMessage(packet);
+        return;
+      }
 
-    if (packet.type === PacketTypes.COMMAND) {
-      this._commandMessage(packet);
-      return;
+      if (packet.type === PacketTypes.COMMAND) {
+        this._commandMessage(packet);
+        return;
+      }
+    } catch (err) {
+      this.emit('error', err);
     }
   }
 
