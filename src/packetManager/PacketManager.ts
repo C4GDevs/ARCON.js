@@ -45,16 +45,13 @@ export default class PacketManager {
 
       const packet = new MultiPartPacket(index, length, sequence, data.subarray(4));
 
-      if (index === 0) {
-        this._packetParts.set(sequence, [packet]);
-        return packet;
-      }
+      if (!this._packetParts.has(sequence)) this._packetParts.set(sequence, new Array(length));
 
       const parts = this._packetParts.get(sequence);
 
-      if (!parts || !parts.length) throw new Error('Could not find MultiPartPacket index');
+      if (!parts) throw new Error('Could not find MultiPartPacket');
 
-      parts.push(packet);
+      parts[index] = packet;
 
       // Construct whole packet
       if (index === length - 1) {
