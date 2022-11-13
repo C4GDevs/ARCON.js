@@ -5,6 +5,7 @@ import { MultiPartPacket, Packet, PacketTypes } from '../packetManager/Packet';
 import PacketManager from '../packetManager/PacketManager';
 import Player from '../playerManager/Player';
 import PlayerManager, { IPlayerManager } from '../playerManager/PlayerManager';
+import { RCONError } from './rconError';
 
 export enum BELogTypes {
   AddBackpackCargo = 'AddBackpackCargo',
@@ -60,7 +61,7 @@ export default interface ARCon {
   on(event: 'command', listener: (data: string) => void): this;
   on(event: 'connected', listener: (data: { success: boolean; error: string | null }) => void): this;
   on(event: 'disconnected', listener: (reason: string) => void): this;
-  on(event: 'error', listener: (error: Error) => void): this;
+  on(event: 'error', listener: (error: RCONError) => void): this;
   on(event: 'message', listener: (message: string) => void): this;
   on(event: 'playerConnected', listener: (message: Player) => void): this;
   on(event: 'playerDisconnected', listener: (message: Player) => void): this;
@@ -158,13 +159,15 @@ export default class ARCon extends EventEmitter {
   /** Initiates connection with RCon server. */
   public connect() {
     if (this._connected) {
-      this.emit('error', 'Tried to connect while already connected');
+      const error = new RCONError('Tried to connect while already connected');
+      this.emit('error', error);
       return;
     }
 
     this._socket.connect(this.port, this.ip, async (err?: Error) => {
       if (err) {
-        this.emit('error', `Could not connect to server (${err.message})`);
+        const error = new RCONError('Could not connect to server', { message: err.message });
+        this.emit('error', error);
         return;
       }
 
@@ -176,7 +179,8 @@ export default class ARCon extends EventEmitter {
         if (this._connected) return;
 
         this._socket.disconnect();
-        this.emit('error', 'Could not connect to server (Port closed)');
+        const error = new RCONError('Could not connect to server', { message: 'Port closed' });
+        this.emit('error', error);
       }, this.timeout);
 
       this._login();
@@ -291,7 +295,8 @@ export default class ARCon extends EventEmitter {
         return;
       }
     } catch (err) {
-      this.emit('error', err);
+      const error = new RCONError('Could not build packet', err);
+      this.emit('error', error);
     }
   }
 
@@ -358,7 +363,8 @@ export default class ARCon extends EventEmitter {
       const match = /^([A-Za-z]+) Log: #(\d+) .+ \([a-z0-9]{32}\) - #(\d+) (.+)/s.exec(packet.data);
 
       if (!match) {
-        this.emit('error', new Error('Could not parse belog'));
+        const error = new RCONError('Could not parse belog', { message: packet.data });
+        this.emit('error', error);
         return;
       }
 
@@ -367,7 +373,8 @@ export default class ARCon extends EventEmitter {
       const player = this._players.resolve(Number(playerId));
 
       if (!player) {
-        this.emit('error', new Error('Could not find player for belog'));
+        const error = new RCONError('Could not find player for belog', { id: playerId, message: packet.data });
+        this.emit('error', error);
         return;
       }
 
