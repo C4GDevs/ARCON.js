@@ -262,6 +262,8 @@ export default class ARCon extends EventEmitter {
         }
       }
 
+      this._players.cache = new Set(newPlayerList);
+
       return;
     }
 
