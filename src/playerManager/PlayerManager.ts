@@ -21,15 +21,19 @@ export interface IPlayerManager extends PlayerManagerFunctions {
 
 export default class PlayerManager implements PlayerManagerFunctions {
   private readonly _arcon: ARCon;
-  private readonly _cache: Map<string, Player>;
+  private _cache: Set<Player>;
 
   constructor(arcon: ARCon) {
     this._arcon = arcon;
-    this._cache = new Map();
+    this._cache = new Set();
   }
 
   get cache() {
     return this._cache;
+  }
+
+  set cache(players: Set<Player>) {
+    this._cache = players;
   }
 
   /**
@@ -37,7 +41,7 @@ export default class PlayerManager implements PlayerManagerFunctions {
    * @param player The player to add.
    */
   public add(player: Player) {
-    this._cache.set(player.guid, player);
+    this._cache.add(player);
   }
 
   /**
@@ -56,7 +60,7 @@ export default class PlayerManager implements PlayerManagerFunctions {
    * @param player The player to remove.
    */
   public remove(player: Player) {
-    this._cache.delete(player.guid);
+    this._cache.delete(player);
   }
 
   /**
@@ -68,16 +72,6 @@ export default class PlayerManager implements PlayerManagerFunctions {
     const text = `say ${target.id} ${message}`;
 
     this._arcon.send(text);
-  };
-
-  setGuid = (player: PlayerResolvable, guid: string) => {
-    const p = this.resolve(player);
-
-    if (!p) throw new Error('Could not resolve player with given info');
-
-    p.guid = guid;
-
-    return p;
   };
 
   /**

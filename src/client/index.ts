@@ -249,7 +249,6 @@ export default class ARCon extends EventEmitter {
         if (!playerObject) {
           playerObject = new Player({ id, ip, name, guid, lobby });
           this.emit('playerConnected', playerObject);
-          this._players.add(playerObject);
         } else {
           playerObject.lobby = lobby;
         }
@@ -257,12 +256,11 @@ export default class ARCon extends EventEmitter {
         newPlayerList.push(playerObject);
       }
 
-      this._players.cache.forEach((item) => {
-        if (!newPlayerList.find((np) => item.guid === np.guid)) {
-          this.emit('playerDisconnected', item);
-          this._players.remove(item);
+      for (const player of this._players.cache) {
+        if (!newPlayerList.find((p) => p.guid === player.guid)) {
+          this.emit('playerDisconnected', player);
         }
-      });
+      }
 
       return;
     }

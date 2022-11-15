@@ -29,10 +29,6 @@ export default class Player {
     return this._guid;
   }
 
-  public set guid(v: string) {
-    this._guid = v;
-  }
-
   public get lobby() {
     return this._lobby;
   }
