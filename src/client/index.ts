@@ -37,7 +37,7 @@ export enum BELogTypes {
 export interface BELog {
   type: BELogTypes;
   filter: number;
-  player: Player;
+  player: Player | null;
   data: string;
 }
 
@@ -54,6 +54,8 @@ interface ConnectionProperies {
   separateMessageTypes?: boolean;
   /** Whether bans should be loaded on connection and cached. */
   loadBans?: boolean;
+  /** Whether BELog events require a player object to be found. */
+  requirePlayerForLogs?: boolean;
 }
 
 export default interface ARCon {
@@ -107,6 +109,9 @@ export default class ARCon extends EventEmitter {
   /** @readonly UDP socket use to communicate to server. */
   private readonly _socket: Socket;
 
+  /** @readonly BELogs require player object in cache. */
+  public readonly requirePlayerForLogs: boolean;
+
   constructor(opts: ConnectionProperies) {
     super();
 
@@ -116,6 +121,7 @@ export default class ARCon extends EventEmitter {
     this.timeout = opts.timeout ?? 5_000;
     this.separateMessageTypes = opts.separateMessageTypes ?? false;
     this.loadBans = opts.loadBans ?? false;
+    this.requirePlayerForLogs = opts.requirePlayerForLogs ?? true;
 
     this._commandManager = new CommandManager(this);
     this._players = new PlayerManager(this);
@@ -364,7 +370,7 @@ export default class ARCon extends EventEmitter {
 
     if (/^[A-Z][A-Za-z]+ Log/.test(packet.data)) {
       // BELog
-      const match = /^([A-Za-z]+) Log: #(\d+) .+ \([a-z0-9]{32}\) - #(\d+) (.+)/s.exec(packet.data);
+      const match = /^([A-Za-z]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)/s.exec(packet.data);
 
       if (!match) {
         const error = new RCONError('Could not parse belog', { message: packet.data });
@@ -372,11 +378,11 @@ export default class ARCon extends EventEmitter {
         return;
       }
 
-      const [, type, playerId, filterIndex, logdata] = match;
+      const [, type, playerId, guid, filterIndex, logdata] = match;
 
       const player = this._players.resolve(Number(playerId));
 
-      if (!player) {
+      if (!player && this.requirePlayerForLogs) {
         const error = new RCONError('Could not find player for belog', { id: playerId, message: packet.data });
         this.emit('error', error);
         return;
@@ -387,6 +393,7 @@ export default class ARCon extends EventEmitter {
           type,
           filter: Number(filterIndex),
           player,
+          guid,
           data: logdata
         });
     }

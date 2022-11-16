@@ -7,7 +7,8 @@ const connection = new Arcon({
   port: 2333,
   password: 'test',
   timeout: 1,
-  separateMessageTypes: true
+  separateMessageTypes: true,
+  requirePlayerForLogs: false
 });
 
 const successResponsePacket = Buffer.from([0x42, 0x45, 0x69, 0xdd, 0xde, 0x36, 0xff, 0x00, 0x01]);
@@ -61,6 +62,11 @@ describe('Connection', () => {
       'RemoteExec Log: #1 Testing (5ddabbcb89ca69b98da05b337e4aaa27) - #0 "testvalue"'
     );
 
+    const belogPacket2 = manager.buildBuffer(
+      PacketTypes.SERVER_MESSAGE,
+      'RemoteExec Log: #2 Testing (5ddabbcb89ca69b98da05b337e4aaa27) - #0 "testvalue"'
+    );
+
     connection['_handlePacket'](playerListPacket);
     expect(connection.playerManager.players.length).to.equal(1);
     expect(connection.playerManager.players[0].lobby).to.be.true;
@@ -75,5 +81,13 @@ describe('Connection', () => {
       expect(log.data).to.equal('"testvalue"');
     });
     connection['_handlePacket'](belogPacket);
+
+    connection.once('belog', (log) => {
+      expect(log.type).to.equal('RemoteExec');
+      expect(log.filter).to.equal(0);
+      expect(log.data).to.equal('"testvalue"');
+      expect(log.player).to.equal(null);
+    });
+    connection['_handlePacket'](belogPacket2);
   });
 });
