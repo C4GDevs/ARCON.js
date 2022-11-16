@@ -257,7 +257,11 @@ export default class ARCon extends EventEmitter {
       }
 
       for (const player of this._players.cache) {
-        if (!newPlayerList.find((p) => p.guid === player.guid)) {
+        const foundPlayer = newPlayerList.find((p) => p.guid === player.guid);
+
+        // A player could be found in cache if they leave and rejoin very quickly,
+        // but they'll have a new and larger id than the last one.
+        if (!foundPlayer || foundPlayer.id > player.id) {
           this.emit('playerDisconnected', player);
         }
       }
