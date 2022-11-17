@@ -39,6 +39,7 @@ export interface BELog {
   filter: number;
   player: Player | null;
   data: string;
+  guid: string;
 }
 
 interface ConnectionProperies {
