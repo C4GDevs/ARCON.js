@@ -8,7 +8,7 @@ export default class CommandManager {
   }
 
   addBan = (identifier: string, time = -1, reason?: string) => {
-    if (!/^[a-z0-9]{32}$/.test(identifier) && !/^(?>\d{1,3}\.){3}\d{1,3}$/.test(identifier))
+    if (!/^[a-z0-9]{32}$/.test(identifier) && !/^(?:\d{1,3}\.){3}\d{1,3}$/.test(identifier))
       throw new Error('Invalid player identifier');
 
     let input = `addBan ${identifier} ${time}`;
