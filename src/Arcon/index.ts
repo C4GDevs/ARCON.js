@@ -1,6 +1,7 @@
 import { createSocket, Socket } from 'dgram';
 import { EventEmitter } from 'stream';
-import PacketManager, { PacketTypes } from './Packets/PacketManager';
+import PacketManager from './Packets/PacketManager';
+import { Packet, PacketTypes, PacketWithSequence } from './Packets/Packet';
 
 interface ConnectionOptions {
   autoReconnect?: boolean;
@@ -39,7 +40,25 @@ export default class Arcon extends EventEmitter {
   }
 
   private _handleMessage(data: Buffer) {
-    this._packetManager.buildPacket(data);
+    const type = this._packetManager.getPacketType(data);
+
+    switch (type) {
+      case PacketTypes.Login: {
+        const packet = <Packet>this._packetManager.buildPacket(data);
+        this._handleLoginPacket(packet);
+        break;
+      }
+
+      case PacketTypes.Command: {
+        break;
+      }
+
+      case PacketTypes.ServerMessage: {
+        const packet = <PacketWithSequence>this._packetManager.buildPacket(data);
+        this._handleServerMessagePacket(packet);
+        break;
+      }
+    }
   }
 
   private _login() {
@@ -54,6 +73,15 @@ export default class Arcon extends EventEmitter {
 
     const buffer = this._packetManager.buildBuffer(PacketTypes.Login, this.password);
 
+    this._socket.send(buffer);
+  }
+
+  private _handleLoginPacket(data: Packet) {}
+
+  private _handleCommandPacket(data: PacketWithSequence) {}
+
+  private _handleServerMessagePacket(data: PacketWithSequence) {
+    const buffer = this._packetManager.buildBuffer(PacketTypes.ServerMessage, data.sequence);
     this._socket.send(buffer);
   }
 }
