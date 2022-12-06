@@ -25,7 +25,8 @@ export default class Arcon extends EventEmitter {
   private readonly _socket: Socket;
   private readonly _packetManager: PacketManager;
   private readonly _playerManager: PlayerManager;
-  private _lastCommandTime = 0;
+  private _lastPlayersRequest = 0;
+  private _lastHeartbeat = 0;
   private _hasInitializedPlayers = false;
 
   constructor(options: ConnectionOptions) {
@@ -89,13 +90,21 @@ export default class Arcon extends EventEmitter {
   }
 
   private _heartbeat() {
-    const lastCommandDelta = Date.now() - this._lastCommandTime;
+    const _heartbeatDelta = Date.now() - this._lastHeartbeat;
+    const _playersDelta = Date.now() - this._lastPlayersRequest;
 
-    if (lastCommandDelta > 10_000) {
+    if (_playersDelta > 15_000) {
       const buffer = this._packetManager.buildBuffer(PacketTypes.Command, 'players');
-      this._socket.send(buffer);
 
-      this._lastCommandTime = Date.now();
+      this._socket.send(buffer);
+      this._lastPlayersRequest = Date.now();
+    }
+
+    if (_heartbeatDelta > 20_000) {
+      const buffer = this._packetManager.buildBuffer(PacketTypes.Command, '');
+
+      this._socket.send(buffer);
+      this._lastHeartbeat = Date.now();
     }
   }
 
