@@ -4,6 +4,7 @@ import { Packet, PacketTypes, PacketWithSequence } from './Packet';
 
 export default class PacketManager {
   private _sequence = -1;
+  private _packetParts: Map<number, PacketWithSequence[]> = new Map();
 
   public buildBuffer(type: PacketTypes, input: string | number) {
     const checksumInput = [0xff, type];
@@ -31,7 +32,35 @@ export default class PacketManager {
     const packetType = data[7];
     const content = data.subarray(8);
 
-    if (packetType === 0) return new Packet(packetType, content);
+    if (packetType === PacketTypes.Login) return new Packet(packetType, content);
+
+    if (packetType === PacketTypes.Command) {
+      const sequence = content[0];
+      const info = content.subarray(1);
+
+      if (info[0] !== 0) return new PacketWithSequence(packetType, info, sequence);
+
+      const packetLength = info[1];
+      const index = info[2];
+
+      const packetArray = this._packetParts.has(sequence)
+        ? <PacketWithSequence[]>this._packetParts.get(sequence)
+        : new Array<PacketWithSequence>(packetLength);
+
+      packetArray[index] = new PacketWithSequence(packetType, info.subarray(3), sequence);
+
+      this._packetParts.set(sequence, packetArray);
+
+      if (packetArray.length === packetLength && Object.values(packetArray).length === packetLength) {
+        const fullContent = Buffer.concat(packetArray.map((p) => p.rawData));
+
+        this._packetParts.delete(sequence);
+
+        return new PacketWithSequence(packetType, fullContent, sequence);
+      }
+
+      return null;
+    }
 
     return new PacketWithSequence(packetType, content.subarray(1), content[0]);
   }
