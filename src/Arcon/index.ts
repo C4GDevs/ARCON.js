@@ -12,6 +12,23 @@ interface ConnectionOptions {
   port: number;
 }
 
+type DisconnectInfo =
+  | {
+      type: 'left';
+      reason: null;
+    }
+  | {
+      type: 'kicked';
+      reason: string;
+    };
+
+export default interface Arcon {
+  on(event: 'connected', listener: (data: { success: boolean; error: string | null }) => void): this;
+  on(event: 'disconnected', listener: (reason: string) => void): this;
+  on(event: 'playerConnected', listener: (player: Player) => void): this;
+  on(event: 'playerDisconnected', listener: (player: Player, info: DisconnectInfo) => void): this;
+}
+
 export default class Arcon extends EventEmitter {
   // Required fields
   public readonly ip: string;
@@ -146,6 +163,8 @@ export default class Arcon extends EventEmitter {
         const player = new Player(id, guid, name, lobby);
 
         this._playerManager._players.set(id, player);
+
+        this.emit('playerConnected', player);
       }
 
       this._hasInitializedPlayers = true;
@@ -165,6 +184,8 @@ export default class Arcon extends EventEmitter {
       const player = new Player(Number(id), guid, name, true);
 
       this._playerManager._players.set(player.id, player);
+
+      this.emit('playerConnected', player);
     }
 
     if (/^Player #\d+ .+ disconnected$/.test(packet.data)) {
@@ -172,19 +193,35 @@ export default class Arcon extends EventEmitter {
 
       if (!match) return;
 
-      const [, id] = match;
+      const [, idStr] = match;
 
-      this._playerManager._players.delete(Number(id));
+      const id = Number(idStr);
+
+      const player = this._playerManager._players.get(id);
+
+      if (player) {
+        this._playerManager._players.delete(id);
+
+        this.emit('playerDisconnected', player, { type: 'left', reason: null });
+      }
     }
 
     if (/^Player #\d+ .+ \([a-z0-9]{32}\) has been kicked by BattlEye:/.test(packet.data)) {
-      const match = /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked/.exec(packet.data);
+      const match = /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)/.exec(packet.data);
 
       if (!match) return;
 
-      const [, id] = match;
+      const [, idStr, , reason] = match;
 
-      this._playerManager._players.delete(Number(id));
+      const id = Number(idStr);
+
+      const player = this._playerManager._players.get(id);
+
+      if (player) {
+        this._playerManager._players.delete(id);
+
+        this.emit('playerDisconnected', player, { type: 'kicked', reason });
+      }
     }
 
     this._socket.send(buffer);
