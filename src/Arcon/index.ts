@@ -74,6 +74,7 @@ export default class Arcon extends EventEmitter {
     this._hasInitializedPlayers = false;
 
     this._packetManager.resetSequence();
+    this._playerManager.clearPlayers();
 
     this._socket.connect(this.port, this.ip);
   }
@@ -117,7 +118,10 @@ export default class Arcon extends EventEmitter {
   }
 
   private _login() {
-    const callback = () => clearTimeout(connectionTimeout);
+    const callback = () => {
+      clearTimeout(connectionTimeout);
+      this._socket.removeListener('message', callback);
+    };
 
     this._socket.prependListener('message', callback);
 
