@@ -23,7 +23,7 @@ type DisconnectInfo =
     };
 
 export default interface Arcon {
-  on(event: 'connected', listener: (data: { success: boolean; error: string | null }) => void): this;
+  on(event: 'connected', listener: () => void): this;
   on(event: 'disconnected', listener: (reason: string) => void): this;
   on(event: 'playerConnected', listener: (player: Player) => void): this;
   on(event: 'playerDisconnected', listener: (player: Player, info: DisconnectInfo) => void): this;
@@ -42,9 +42,12 @@ export default class Arcon extends EventEmitter {
   private readonly _socket: Socket;
   private readonly _packetManager: PacketManager;
   private readonly _playerManager: PlayerManager;
-  private _lastPlayersRequest = 0;
-  private _lastHeartbeat = 0;
+
+  private _currentCommandPacket: Buffer | null = null;
+  private _commandPacketAttempts = 0;
+  private _lastCommandReceived = 0;
   private _hasInitializedPlayers = false;
+  private _connected = false;
 
   constructor(options: ConnectionOptions) {
     super();
@@ -59,7 +62,8 @@ export default class Arcon extends EventEmitter {
     this._socket.on('message', (data) => this._handleMessage(data));
 
     setInterval(() => {
-      this._heartbeat();
+      this._sendCommandPacket();
+      this._checkConnection();
     }, 1_000);
   }
 
@@ -106,23 +110,39 @@ export default class Arcon extends EventEmitter {
     this._socket.send(buffer);
   }
 
-  private _heartbeat() {
-    const _heartbeatDelta = Date.now() - this._lastHeartbeat;
-    const _playersDelta = Date.now() - this._lastPlayersRequest;
+  private _checkConnection() {
+    if (!this._connected) return;
 
-    if (_playersDelta > 15_000) {
-      const buffer = this._packetManager.buildBuffer(PacketTypes.Command, 'players');
+    if (Date.now() - this._lastCommandReceived > 10_000) {
+      this._connected = false;
+      this.emit('disconnected', 'Connection timed out');
+    }
+  }
 
-      this._socket.send(buffer);
-      this._lastPlayersRequest = Date.now();
+  private _sendCommandPacket() {
+    if (!this._connected) return;
+
+    if (this._currentCommandPacket) {
+      if (this._commandPacketAttempts > 3) {
+        this._connected = false;
+        this.emit('disconnected', 'Failed to send command packet');
+
+        return;
+      }
+
+      this._socket.send(this._currentCommandPacket);
+      this._commandPacketAttempts++;
+
+      return;
     }
 
-    if (_heartbeatDelta > 20_000) {
-      const buffer = this._packetManager.buildBuffer(PacketTypes.Command, '');
+    if (Date.now() - this._lastCommandReceived < 5_000) return;
 
-      this._socket.send(buffer);
-      this._lastHeartbeat = Date.now();
-    }
+    const buffer = this._packetManager.buildBuffer(PacketTypes.Command, 'players');
+
+    this._currentCommandPacket = buffer;
+
+    this._socket.send(buffer);
   }
 
   private _handleLoginPacket(packet: Packet) {
@@ -130,10 +150,21 @@ export default class Arcon extends EventEmitter {
       const buffer = this._packetManager.buildBuffer(PacketTypes.Command, 'players');
 
       this._socket.send(buffer);
+
+      this._connected = true;
+      this._lastCommandReceived = Date.now();
+
+      this.emit('connected');
+    } else {
+      this.emit('disconnected', 'Invalid password');
     }
   }
 
   private _handleCommandPacket(packet: PacketWithSequence) {
+    this._currentCommandPacket = null;
+    this._commandPacketAttempts = 0;
+    this._lastCommandReceived = Date.now();
+
     if (packet.data.length === 0) return;
 
     if (packet.data.startsWith('Players on server')) {
