@@ -69,6 +69,10 @@ export default class PacketManager {
     return data[7];
   }
 
+  public resetSequence() {
+    this._sequence = -1;
+  }
+
   private _getNextSequence() {
     return ++this._sequence % 256;
   }

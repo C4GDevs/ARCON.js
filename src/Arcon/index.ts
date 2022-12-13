@@ -68,7 +68,28 @@ export default class Arcon extends EventEmitter {
   }
 
   public connect() {
+    this._currentCommandPacket = null;
+    this._commandPacketAttempts = 0;
+    this._lastCommandReceived = 0;
+    this._hasInitializedPlayers = false;
+
+    this._packetManager.resetSequence();
+
     this._socket.connect(this.port, this.ip);
+  }
+
+  private _disconnect(reason: string) {
+    this._socket.disconnect();
+    this._connected = false;
+
+    this.emit('disconnected', reason);
+
+    if (this.autoReconnect) this._attemptReconnection(reason);
+  }
+
+  private _attemptReconnection(disconnectReason: string) {
+    if (disconnectReason === 'Invalid password') return;
+    this.connect();
   }
 
   private _handleMessage(data: Buffer) {
@@ -101,8 +122,8 @@ export default class Arcon extends EventEmitter {
     this._socket.prependListener('message', callback);
 
     const connectionTimeout = setTimeout(() => {
-      this._socket.close();
       this._socket.removeListener('message', callback);
+      this._disconnect('Failed to connect to server');
     }, 5_000);
 
     const buffer = this._packetManager.buildBuffer(PacketTypes.Login, this.password);
@@ -114,8 +135,7 @@ export default class Arcon extends EventEmitter {
     if (!this._connected) return;
 
     if (Date.now() - this._lastCommandReceived > 10_000) {
-      this._connected = false;
-      this.emit('disconnected', 'Connection timed out');
+      this._disconnect('Connection timed out');
     }
   }
 
@@ -124,9 +144,7 @@ export default class Arcon extends EventEmitter {
 
     if (this._currentCommandPacket) {
       if (this._commandPacketAttempts > 3) {
-        this._connected = false;
-        this.emit('disconnected', 'Failed to send command packet');
-
+        this._disconnect('Failed to receive command response');
         return;
       }
 
@@ -156,7 +174,7 @@ export default class Arcon extends EventEmitter {
 
       this.emit('connected');
     } else {
-      this.emit('disconnected', 'Invalid password');
+      this._disconnect('Invalid password');
     }
   }
 
