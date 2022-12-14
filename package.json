@@ -20,7 +20,7 @@
     "playerManager/**/*"
   ],
   "scripts": {
-    "clean": "rm -rf Arcon && rm -rf index.d.ts && rm -rf index.js",
+    "clean": "rimraf Arcon index.d.ts index.js",
     "test": "mocha -r ts-node/register 'tests/**/*.ts' --exit",
     "lint": "prettier --check . && eslint src",
     "prepublishOnly": "npm run clean && npm run lint && npm run test && tsc",
@@ -41,6 +41,7 @@
     "eslint-plugin-prettier": "^4.0.0",
     "mocha": "^9.2.0",
     "prettier": "^2.5.1",
+    "rimraf": "^3.0.2",
     "ts-node": "^10.4.0",
     "typescript": "^4.5.5"
   },

@@ -26,6 +26,7 @@ export default interface Arcon {
   on(event: 'connected', listener: () => void): this;
   on(event: 'disconnected', listener: (reason: string) => void): this;
   on(event: 'playerConnected', listener: (player: Player) => void): this;
+  on(event: 'playerUpdated', listener: (player: Player) => void): this;
   on(event: 'playerDisconnected', listener: (player: Player, info: DisconnectInfo) => void): this;
 }
 
@@ -206,7 +207,15 @@ export default class Arcon extends EventEmitter {
 
         if (foundPlayer) {
           const player = this._playerManager._players.get(id);
-          if (player) player.lobby = lobby;
+          if (player) {
+            player.lobby = lobby;
+
+            if (!player.ip) {
+              player.ip = _ip;
+
+              this.emit('playerUpdated', player);
+            }
+          }
 
           continue;
         }
