@@ -1,5 +1,5 @@
 import { createSocket, Socket } from 'dgram';
-import { EventEmitter } from 'stream';
+import { EventEmitter } from 'events';
 import PacketManager from './Packets/PacketManager';
 import { Packet, PacketTypes, PacketWithSequence } from './Packets/Packet';
 import PlayerManager from './Players/playerManager';
@@ -25,12 +25,24 @@ type DisconnectInfo =
 export default interface Arcon {
   on(event: 'connected', listener: () => void): this;
   on(event: 'disconnected', listener: (reason: string) => void): this;
-  on(event: 'playerConnected', listener: (player: Player) => void): this;
+  on(event: 'playerJoined', listener: (player: Player) => void): this;
+  on(event: 'playerLeft', listener: (player: Player, info: DisconnectInfo) => void): this;
   on(event: 'playerUpdated', listener: (player: Player) => void): this;
-  on(event: 'playerDisconnected', listener: (player: Player, info: DisconnectInfo) => void): this;
+
+  once(event: 'connected', listener: () => void): this;
+  once(event: 'disconnected', listener: (reason: string) => void): this;
+  once(event: 'playerJoined', listener: (player: Player) => void): this;
+  once(event: 'playerLeft', listener: (player: Player, info: DisconnectInfo) => void): this;
+  once(event: 'playerUpdated', listener: (player: Player) => void): this;
+
+  emit(event: 'connected'): boolean;
+  emit(event: 'disconnected', reason: string): boolean;
+  emit(event: 'playerJoined', player: Player): boolean;
+  emit(event: 'playerLeft', player: Player, info: DisconnectInfo): boolean;
+  emit(event: 'playerUpdated', player: Player): boolean;
 }
 
-export default class Arcon extends EventEmitter {
+export default class Arcon extends EventEmitter implements Arcon {
   // Required fields
   public readonly ip: string;
   public readonly password: string;
@@ -226,7 +238,7 @@ export default class Arcon extends EventEmitter {
 
         this._playerManager._players.set(id, player);
 
-        this.emit('playerConnected', player);
+        this.emit('playerJoined', player);
       }
 
       this._hasInitializedPlayers = true;
@@ -247,7 +259,7 @@ export default class Arcon extends EventEmitter {
 
       this._playerManager._players.set(player.id, player);
 
-      this.emit('playerConnected', player);
+      this.emit('playerJoined', player);
     }
 
     if (/^Player #\d+ .+ disconnected$/.test(packet.data)) {
@@ -264,7 +276,7 @@ export default class Arcon extends EventEmitter {
       if (player) {
         this._playerManager._players.delete(id);
 
-        this.emit('playerDisconnected', player, { type: 'left', reason: null });
+        this.emit('playerLeft', player, { type: 'left', reason: null });
       }
     }
 
@@ -282,7 +294,7 @@ export default class Arcon extends EventEmitter {
       if (player) {
         this._playerManager._players.delete(id);
 
-        this.emit('playerDisconnected', player, { type: 'kicked', reason });
+        this.emit('playerLeft', player, { type: 'kicked', reason });
       }
     }
 

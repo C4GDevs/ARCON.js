@@ -9,7 +9,8 @@
     "strict": true,
     "declaration": true,
     "skipLibCheck": true,
-    "strictPropertyInitialization": false
+    "strictPropertyInitialization": false,
+    "noImplicitAny": true,
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]

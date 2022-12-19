@@ -1,3 +1,3 @@
 import Arcon from './Arcon';
 
-export default Arcon;
+export = Arcon;
