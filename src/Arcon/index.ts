@@ -22,24 +22,20 @@ type DisconnectInfo =
       reason: string;
     };
 
+type Events = {
+  connected: () => void;
+  disconnected: (reason: string) => void;
+  playerJoined: (player: Player) => void;
+  playerLeft: (player: Player, info: DisconnectInfo) => void;
+  playerUpdated: (player: Player) => void;
+};
+
 export default interface Arcon {
-  on(event: 'connected', listener: () => void): this;
-  on(event: 'disconnected', listener: (reason: string) => void): this;
-  on(event: 'playerJoined', listener: (player: Player) => void): this;
-  on(event: 'playerLeft', listener: (player: Player, info: DisconnectInfo) => void): this;
-  on(event: 'playerUpdated', listener: (player: Player) => void): this;
+  on<U extends keyof Events>(event: U, listener: Events[U]): this;
 
-  once(event: 'connected', listener: () => void): this;
-  once(event: 'disconnected', listener: (reason: string) => void): this;
-  once(event: 'playerJoined', listener: (player: Player) => void): this;
-  once(event: 'playerLeft', listener: (player: Player, info: DisconnectInfo) => void): this;
-  once(event: 'playerUpdated', listener: (player: Player) => void): this;
+  once<U extends keyof Events>(event: U, listener: Events[U]): this;
 
-  emit(event: 'connected'): boolean;
-  emit(event: 'disconnected', reason: string): boolean;
-  emit(event: 'playerJoined', player: Player): boolean;
-  emit(event: 'playerLeft', player: Player, info: DisconnectInfo): boolean;
-  emit(event: 'playerUpdated', player: Player): boolean;
+  emit<U extends keyof Events>(event: U, ...args: Parameters<Events[U]>): boolean;
 }
 
 export default class Arcon extends EventEmitter implements Arcon {
