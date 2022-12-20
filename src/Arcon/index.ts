@@ -2,7 +2,7 @@ import { createSocket, Socket } from 'dgram';
 import { EventEmitter } from 'events';
 import PacketManager from './Packets/PacketManager';
 import { Packet, PacketTypes, PacketWithSequence } from './Packets/Packet';
-import PlayerManager from './Players/playerManager';
+import PlayerManager, { PlayerResolvable } from './Players/playerManager';
 import Player from './Players/Player';
 
 interface ConnectionOptions {
@@ -29,6 +29,11 @@ type Events = {
   playerLeft: (player: Player, info: DisconnectInfo) => void;
   playerUpdated: (player: Player) => void;
 };
+
+interface IPlayerManager {
+  players: Player[];
+  resolve: (identifier: PlayerResolvable) => Player | null;
+}
 
 export default interface Arcon {
   on<U extends keyof Events>(event: U, listener: Events[U]): this;
@@ -94,6 +99,14 @@ export default class Arcon extends EventEmitter implements Arcon {
     this._connected = false;
 
     this.emit('disconnected', 'Disconnected by user');
+  }
+
+  public get playerManager(): IPlayerManager {
+    const manager = this._playerManager;
+    return {
+      players: [...manager.players.values()],
+      resolve: manager.resolve.bind(manager)
+    };
   }
 
   private _disconnect(reason: string) {
@@ -219,10 +232,10 @@ export default class Arcon extends EventEmitter implements Arcon {
         const id = Number(idStr);
         const lobby = lobbyStr === 'Lobby';
 
-        const foundPlayer = this._playerManager._players.has(id);
+        const foundPlayer = this._playerManager.players.has(id);
 
         if (foundPlayer) {
-          const player = this._playerManager._players.get(id);
+          const player = this._playerManager.players.get(id);
           if (player) {
             player.lobby = lobby;
 
@@ -240,7 +253,7 @@ export default class Arcon extends EventEmitter implements Arcon {
 
         const player = new Player(id, guid, name, lobby);
 
-        this._playerManager._players.set(id, player);
+        this._playerManager.players.set(id, player);
 
         this.emit('playerJoined', player);
       }
@@ -261,7 +274,7 @@ export default class Arcon extends EventEmitter implements Arcon {
 
       const player = new Player(Number(id), guid, name, true);
 
-      this._playerManager._players.set(player.id, player);
+      this._playerManager.players.set(player.id, player);
 
       this.emit('playerJoined', player);
     }
@@ -275,10 +288,10 @@ export default class Arcon extends EventEmitter implements Arcon {
 
       const id = Number(idStr);
 
-      const player = this._playerManager._players.get(id);
+      const player = this._playerManager.players.get(id);
 
       if (player) {
-        this._playerManager._players.delete(id);
+        this._playerManager.players.delete(id);
 
         this.emit('playerLeft', player, { type: 'left', reason: null });
       }
@@ -293,10 +306,10 @@ export default class Arcon extends EventEmitter implements Arcon {
 
       const id = Number(idStr);
 
-      const player = this._playerManager._players.get(id);
+      const player = this._playerManager.players.get(id);
 
       if (player) {
-        this._playerManager._players.delete(id);
+        this._playerManager.players.delete(id);
 
         this.emit('playerLeft', player, { type: 'kicked', reason });
       }
