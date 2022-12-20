@@ -88,6 +88,14 @@ export default class Arcon extends EventEmitter implements Arcon {
     this._socket.connect(this.port, this.ip);
   }
 
+  public disconnect() {
+    this._socket.disconnect();
+
+    this._connected = false;
+
+    this.emit('disconnected', 'Disconnected by user');
+  }
+
   private _disconnect(reason: string) {
     this._socket.disconnect();
     this._connected = false;
