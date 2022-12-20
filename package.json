@@ -1,6 +1,6 @@
 {
   "name": "arcon.js",
-  "version": "3.0.0-alpha.2",
+  "version": "3.0.0-alpha.3",
   "description": "An RCON client library for Arma III",
   "license": "MIT",
   "keywords": [
@@ -14,10 +14,7 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "client/**/*",
-    "commandManager/**/*",
-    "packetManager/**/*",
-    "playerManager/**/*"
+    "Arcon/**/*"
   ],
   "scripts": {
     "clean": "rimraf Arcon index.d.ts index.js",
