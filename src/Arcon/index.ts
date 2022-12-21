@@ -22,12 +22,18 @@ type DisconnectInfo =
       reason: string;
     };
 
+/**
+ * @param 0 - Lobby status has changed
+ * @param 1 - IP has been set
+ */
+type PlayerUpdateInfo = [boolean, boolean];
+
 type Events = {
   connected: () => void;
   disconnected: (reason: string) => void;
   playerJoined: (player: Player) => void;
   playerLeft: (player: Player, info: DisconnectInfo) => void;
-  playerUpdated: (player: Player) => void;
+  playerUpdated: (player: Player, info: PlayerUpdateInfo) => void;
 };
 
 interface IPlayerManager {
@@ -221,29 +227,31 @@ export default class Arcon extends EventEmitter implements Arcon {
 
     if (packet.data.startsWith('Players on server')) {
       const matches = packet.data.matchAll(
-        /^(\d+) +((?:\d{1,3}(?:\.|)){4}):\d+ +[-\d]+ +([a-z0-9]{32})\(OK\) +(.+?)(?:(?: \((Lobby)\)$|$))/gm
+        /^(\d+) +((?:\d{1,3}(?:\.|)){4}):\d+ +([-\d]+) +([a-z0-9]{32})\(OK\) +(.+?)(?:(?: \((Lobby)\)$|$))/gm
       );
 
       if (!matches) return;
 
       for (const match of matches) {
-        const [, idStr, _ip, guid, name, lobbyStr] = match;
+        const [, idStr, ip, pingStr, guid, name, lobbyStr] = match;
 
         const id = Number(idStr);
         const lobby = lobbyStr === 'Lobby';
 
         const foundPlayer = this._playerManager.players.has(id);
 
+        const ping = Number(pingStr);
+
         if (foundPlayer) {
           const player = this._playerManager.players.get(id);
           if (player) {
+            const updatedFields: PlayerUpdateInfo = [lobby !== player.lobby, ip !== player.ip];
+
             player.lobby = lobby;
+            player.ping = ping;
+            player.ip = ip;
 
-            if (!player.ip) {
-              player.ip = _ip;
-
-              this.emit('playerUpdated', player);
-            }
+            if (updatedFields.some(Boolean)) this.emit('playerUpdated', player, updatedFields);
           }
 
           continue;

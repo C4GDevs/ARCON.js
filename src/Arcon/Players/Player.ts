@@ -5,13 +5,15 @@ export default class Player {
 
   private _ip: string;
   private _lobby: boolean;
+  private _ping: number;
 
-  constructor(id: number, guid: string, name: string, lobby: boolean, ip?: string) {
+  constructor(id: number, guid: string, name: string, lobby: boolean, ip?: string, ping?: number) {
     this.id = id;
     this.guid = guid;
     this.name = name;
 
     if (ip) this._ip = ip;
+    if (ping) this._ping = ping;
 
     this._lobby = lobby;
   }
@@ -27,7 +29,16 @@ export default class Player {
   public get ip(): string {
     return this._ip;
   }
+
   public set ip(v: string) {
     this._ip = v;
+  }
+
+  public get ping(): number {
+    return this._ping;
+  }
+
+  public set ping(v: number) {
+    this._ping = v;
   }
 }
