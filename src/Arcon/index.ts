@@ -5,14 +5,14 @@ import { Packet, PacketTypes, PacketWithSequence } from './Packets/Packet';
 import PlayerManager, { PlayerResolvable } from './Players/playerManager';
 import Player from './Players/Player';
 
-interface ConnectionOptions {
+export interface ConnectionOptions {
   autoReconnect?: boolean;
   ip: string;
   password: string;
   port: number;
 }
 
-type DisconnectInfo =
+export type DisconnectInfo =
   | {
       type: 'left';
       reason: null;
