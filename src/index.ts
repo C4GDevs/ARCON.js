@@ -1,3 +1,6 @@
 import Arcon from './Arcon';
+import Player from './Arcon/Players/Player';
 
-export = Arcon;
+export { Player };
+
+export default Arcon;
