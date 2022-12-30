@@ -68,6 +68,7 @@ export default class Arcon extends EventEmitter implements Arcon {
   private _lastCommandReceived = 0;
   private _hasInitializedPlayers = false;
   private _connected = false;
+  private _abortReconnection = false;
 
   constructor(options: ConnectionOptions) {
     super();
@@ -115,17 +116,28 @@ export default class Arcon extends EventEmitter implements Arcon {
     };
   }
 
+  public get abortReconnection() {
+    return this._abortReconnection;
+  }
+
+  public set abortReconnection(value: boolean) {
+    this._abortReconnection = value;
+  }
+
   private _disconnect(reason: string) {
+    if (!this._connected) return;
+
     this._socket.disconnect();
     this._connected = false;
 
     this.emit('disconnected', reason);
 
-    if (this.autoReconnect) this._attemptReconnection(reason);
+    if (this.autoReconnect) setTimeout(() => this._attemptReconnection(reason), 5_000);
   }
 
   private _attemptReconnection(disconnectReason: string) {
-    if (disconnectReason === 'Invalid password') return;
+    if (disconnectReason === 'Invalid password' || this._abortReconnection) return;
+
     this.connect();
   }
 
