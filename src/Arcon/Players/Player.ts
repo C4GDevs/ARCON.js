@@ -3,7 +3,7 @@ export default class Player {
   public readonly guid: string;
   public readonly name: string;
 
-  private _ip: string;
+  private _ip: string | undefined;
   private _lobby: boolean;
   private _ping: number;
 
@@ -26,11 +26,11 @@ export default class Player {
     this._lobby = v;
   }
 
-  public get ip(): string {
+  public get ip(): string | undefined {
     return this._ip;
   }
 
-  public set ip(v: string) {
+  public set ip(v: string | undefined) {
     this._ip = v;
   }
 
