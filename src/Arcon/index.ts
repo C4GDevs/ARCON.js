@@ -322,7 +322,7 @@ export default class Arcon extends EventEmitter implements Arcon {
 
       if (!match) return;
 
-      const [, idStr, , reason] = match;
+      const [, idStr, reason] = match;
 
       const id = Number(idStr);
 
@@ -330,6 +330,8 @@ export default class Arcon extends EventEmitter implements Arcon {
 
       if (player) {
         this._playerManager.players.delete(id);
+
+        console.log(packet.data);
 
         this.emit('playerLeft', player, { type: 'kicked', reason });
       }
