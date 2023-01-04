@@ -2,6 +2,7 @@ export default class Player {
   public readonly id: number;
   public readonly guid: string;
   public readonly name: string;
+  public readonly connectedAt: Date;
 
   private _ip: string | undefined;
   private _lobby: boolean;
@@ -16,6 +17,8 @@ export default class Player {
     if (ping) this._ping = ping;
 
     this._lobby = lobby;
+
+    this.connectedAt = new Date();
   }
 
   public get lobby(): boolean {
