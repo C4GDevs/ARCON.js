@@ -5,12 +5,21 @@ import { Packet, PacketTypes, PacketWithSequence } from './Packets/Packet';
 import PlayerManager, { PlayerResolvable } from './Players/playerManager';
 import Player from './Players/Player';
 
-export interface ConnectionOptions {
+export enum MessageChannels {
+  Global = 'Global',
+  Side = 'Side',
+  Command = 'Command',
+  Group = 'Group',
+  Direct = 'Direct',
+  Vehicle = 'Vehicle'
+}
+
+export type ConnectionOptions = {
   autoReconnect?: boolean;
   ip: string;
   password: string;
   port: number;
-}
+};
 
 export type DisconnectInfo =
   | {
@@ -21,6 +30,11 @@ export type DisconnectInfo =
       type: 'kicked';
       reason: string;
     };
+
+export type PlayerMessageInfo = {
+  channel: keyof typeof MessageChannels;
+  message: string;
+};
 
 /**
  * @param 0 - Lobby status has changed
@@ -34,6 +48,7 @@ type Events = {
   playerJoined: (player: Player) => void;
   playerLeft: (player: Player, info: DisconnectInfo) => void;
   playerUpdated: (player: Player, info: PlayerUpdateInfo) => void;
+  playerMessage: (player: Player, info: PlayerMessageInfo) => void;
 };
 
 interface IPlayerManager {
@@ -285,10 +300,12 @@ export default class Arcon extends EventEmitter implements Arcon {
   private _handleServerMessagePacket(packet: PacketWithSequence) {
     const buffer = this._packetManager.buildBuffer(PacketTypes.ServerMessage, packet.sequence);
 
+    const sendResponse = () => this._socket.send(buffer);
+
     if (/^Verified GUID/.test(packet.data)) {
       const match = /^Verified GUID \(([a-z0-9]{32})\) of player #(\d+) (.+)$/.exec(packet.data);
 
-      if (!match) return;
+      if (!match) return sendResponse();
 
       const [, guid, id, name] = match;
 
@@ -302,7 +319,7 @@ export default class Arcon extends EventEmitter implements Arcon {
     if (/^Player #\d+ .+ disconnected$/.test(packet.data)) {
       const match = /^Player #(\d+) .+ disconnected/.exec(packet.data);
 
-      if (!match) return;
+      if (!match) return sendResponse();
 
       const [, idStr] = match;
 
@@ -320,7 +337,7 @@ export default class Arcon extends EventEmitter implements Arcon {
     if (/^Player #\d+ .+ \([a-z0-9]{32}\) has been kicked by BattlEye:/.test(packet.data)) {
       const match = /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)/.exec(packet.data);
 
-      if (!match) return;
+      if (!match) return sendResponse();
 
       const [, idStr, reason] = match;
 
@@ -335,6 +352,30 @@ export default class Arcon extends EventEmitter implements Arcon {
       }
     }
 
-    this._socket.send(buffer);
+    if (/^\(Global|Side|Command|Group|Direct|Vehicle\) /.test(packet.data)) {
+      const match = /^\((Global|Side|Command|Group|Direct|Vehicle)\) (.+)$/.exec(packet.data);
+
+      if (!match) return sendResponse();
+
+      const [, channel, text] = match;
+
+      const names = [...this._playerManager.players.values()]
+        .map((player) => player.name)
+        .sort((a, b) => b.length - a.length);
+
+      const name = names.find((name) => text.startsWith(name));
+
+      if (!name) return sendResponse();
+
+      const player = [...this._playerManager.players.values()].find((player) => player.name === name);
+
+      if (!player) return sendResponse();
+
+      const channelStr = <MessageChannels>channel;
+
+      this.emit('playerMessage', player, { channel: channelStr, message: text.slice(name.length + 2) });
+    }
+
+    sendResponse();
   }
 }
