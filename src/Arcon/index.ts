@@ -167,7 +167,7 @@ export default class Arcon extends EventEmitter implements Arcon {
       }
 
       case PacketTypes.Command: {
-        const packet = <PacketWithSequence | null>this._packetManager.buildPacket(data);
+        const packet = <PacketWithSequence>this._packetManager.buildPacket(data);
         if (packet !== null) this._handleCommandPacket(packet);
         break;
       }

@@ -6,6 +6,17 @@ export default class PacketManager {
   private _sequence = -1;
   private _packetParts: Map<number, PacketWithSequence[]> = new Map();
 
+  constructor() {
+    // TODO: find a better way to clean packets
+    setInterval(() => {
+      for (let i = 0; i < this._sequence; i++) {
+        if (this._packetParts.has(i)) {
+          this._packetParts.delete(i);
+        }
+      }
+    }, 1000);
+  }
+
   public buildBuffer(type: PacketTypes, input: string | number) {
     const checksumInput = [0xff, type];
 
@@ -43,9 +54,14 @@ export default class PacketManager {
       const packetLength = info[1];
       const index = info[2];
 
-      const packetArray = this._packetParts.has(sequence)
-        ? <PacketWithSequence[]>this._packetParts.get(sequence)
-        : new Array<PacketWithSequence>(packetLength);
+      const packetArray =
+        <PacketWithSequence[]>this._packetParts.get(sequence) ?? new Array<PacketWithSequence>(packetLength);
+
+      // If the packet is already complete, ignore it
+      if (packetArray.length !== packetLength) {
+        this._packetParts.delete(sequence);
+        return null;
+      }
 
       packetArray[index] = new PacketWithSequence(packetType, info.subarray(3), sequence);
 
@@ -55,7 +71,6 @@ export default class PacketManager {
         const fullContent = Buffer.concat(packetArray.map((p) => p.rawData));
 
         this._packetParts.delete(sequence);
-
         return new PacketWithSequence(packetType, fullContent, sequence);
       }
 
