@@ -78,6 +78,7 @@ export default class Arcon extends EventEmitter implements Arcon {
   private readonly _packetManager: PacketManager;
   private readonly _playerManager: PlayerManager;
 
+  private _connectedAt: Date;
   private _currentCommandPacket: Buffer | null = null;
   private _commandPacketAttempts = 0;
   private _lastCommandReceived = 0;
@@ -148,6 +149,10 @@ export default class Arcon extends EventEmitter implements Arcon {
     this.emit('disconnected', reason);
 
     if (this.autoReconnect) setTimeout(() => this._attemptReconnection(reason), 5_000);
+  }
+
+  public get connectedAt() {
+    return this._connectedAt ?? null;
   }
 
   private _attemptReconnection(disconnectReason: string) {
@@ -237,6 +242,7 @@ export default class Arcon extends EventEmitter implements Arcon {
       this._socket.send(buffer);
 
       this._connected = true;
+      this._connectedAt = new Date();
       this._lastCommandReceived = Date.now();
 
       this.emit('connected');
