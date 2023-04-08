@@ -2,7 +2,7 @@ import { createSocket, Socket } from 'dgram';
 import { EventEmitter } from 'events';
 import PacketManager from './Packets/PacketManager';
 import { Packet, PacketTypes, PacketWithSequence } from './Packets/Packet';
-import PlayerManager, { PlayerResolvable } from './Players/playerManager';
+import PlayerManager, { PlayerResolvable } from './Players/PlayerManager';
 import Player from './Players/Player';
 
 export enum MessageChannels {
