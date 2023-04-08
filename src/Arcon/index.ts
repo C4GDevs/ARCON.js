@@ -5,6 +5,41 @@ import { Packet, PacketTypes, PacketWithSequence } from './Packets/Packet';
 import PlayerManager, { PlayerResolvable } from './Players/PlayerManager';
 import Player from './Players/Player';
 
+export enum BELogTypes {
+  AddBackpackCargo = 'AddBackpackCargo',
+  AddForce = 'AddForce',
+  AddMagazineCargo = 'AddMagazineCargo',
+  AddTorque = 'AddTorque',
+  AddWeaponCargo = 'AddWeaponCargo',
+  AttachTo = 'AttachTo',
+  CreateVehicle = 'CreateVehicle',
+  DeleteVehicle = 'DeleteVehicle',
+  MoveOut = 'MoveOut',
+  MPEventHandler = 'MPEventHandler',
+  PublicVariable = 'PublicVariable',
+  PublicVariableVal = 'PublicVariableVal',
+  RemoteControl = 'RemoteControl',
+  RemoteExec = 'RemoteExec',
+  Script = 'Script',
+  SelectPlayer = 'SelectPlayer',
+  SetDamage = 'SetDamage',
+  SetPos = 'SetPos',
+  SetVariable = 'SetVariable',
+  SetVariableVal = 'SetVariableVal',
+  SetVisibility = 'SetVisibility',
+  TeamSwitch = 'TeamSwitch',
+  WaypointCondition = 'WaypointCondition',
+  WaypointStatement = 'WaypointStatement'
+}
+
+export interface BELog {
+  type: BELogTypes;
+  filter: number;
+  player: Player | null;
+  data: string;
+  guid: string;
+}
+
 export enum MessageChannels {
   Global = 'Global',
   Side = 'Side',
@@ -49,6 +84,7 @@ type Events = {
   playerLeft: (player: Player, info: DisconnectInfo) => void;
   playerUpdated: (player: Player, info: PlayerUpdateInfo) => void;
   playerMessage: (player: Player, info: PlayerMessageInfo) => void;
+  beLog: (log: BELog) => void;
 };
 
 interface IPlayerManager {
@@ -380,6 +416,26 @@ export default class Arcon extends EventEmitter implements Arcon {
       const channelStr = <MessageChannels>channel;
 
       this.emit('playerMessage', player, { channel: channelStr, message: text.slice(name.length + 2) });
+    }
+
+    if (/^[A-Z][A-Za-z]+ Log/.test(packet.data)) {
+      const match = /^([A-Za-z]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)/s.exec(packet.data);
+
+      if (!match) return sendResponse();
+
+      const [, type, playerId, guid, filterIndex, data] = match;
+
+      const player = this._playerManager.resolve(Number(playerId));
+
+      if (!player) return sendResponse();
+
+      this.emit('beLog', {
+        type: <BELogTypes>type,
+        filter: Number(filterIndex),
+        player,
+        guid,
+        data
+      });
     }
 
     sendResponse();
