@@ -121,6 +121,7 @@ export default class Arcon extends EventEmitter implements Arcon {
   private _hasInitializedPlayers = false;
   private _connected = false;
   private _abortReconnection = false;
+  private _running = false;
 
   constructor(options: ConnectionOptions) {
     super();
@@ -150,12 +151,14 @@ export default class Arcon extends EventEmitter implements Arcon {
     this._playerManager.clearPlayers();
 
     this._socket.connect(this.port, this.ip);
+    this._running = true;
   }
 
   public disconnect() {
     this._socket.disconnect();
 
     this._connected = false;
+    this._running = false;
 
     this.emit('disconnected', 'Disconnected by user');
   }
@@ -177,10 +180,11 @@ export default class Arcon extends EventEmitter implements Arcon {
   }
 
   private _disconnect(reason: string) {
-    if (!this._connected) return;
+    if (!this._running) return;
 
     this._socket.disconnect();
     this._connected = false;
+    this._running = false;
 
     this.emit('disconnected', reason);
 
@@ -240,7 +244,7 @@ export default class Arcon extends EventEmitter implements Arcon {
   }
 
   private _checkConnection() {
-    if (!this._connected) return;
+    if (!this._running) return;
 
     if (Date.now() - this._lastCommandReceived > 10_000) {
       this._disconnect('Connection timed out');
