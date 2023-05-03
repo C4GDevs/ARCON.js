@@ -110,10 +110,10 @@ export default class Arcon extends EventEmitter implements Arcon {
   public readonly autoReconnect = false;
 
   // Private fields
-  private readonly _socket: Socket;
   private readonly _packetManager: PacketManager;
   private readonly _playerManager: PlayerManager;
 
+  private _socket: Socket;
   private _connectedAt: Date;
   private _currentCommandPacket: Buffer | null = null;
   private _commandPacketAttempts = 0;
@@ -122,6 +122,7 @@ export default class Arcon extends EventEmitter implements Arcon {
   private _connected = false;
   private _abortReconnection = false;
   private _running = false;
+  private _lastSocketConnection = 0;
 
   constructor(options: ConnectionOptions) {
     super();
@@ -131,9 +132,6 @@ export default class Arcon extends EventEmitter implements Arcon {
     this._socket = createSocket('udp4');
     this._packetManager = new PacketManager();
     this._playerManager = new PlayerManager();
-
-    this._socket.on('connect', () => this._login());
-    this._socket.on('message', (data) => this._handleMessage(data));
 
     setInterval(() => {
       this._sendCommandPacket();
@@ -149,18 +147,18 @@ export default class Arcon extends EventEmitter implements Arcon {
 
     this._packetManager.resetSequence();
     this._playerManager.clearPlayers();
+    this._socket = createSocket('udp4');
+
+    this._socket.on('connect', () => this._login());
+    this._socket.on('message', (data) => this._handleMessage(data));
 
     this._socket.connect(this.port, this.ip);
+
     this._running = true;
   }
 
   public disconnect() {
-    this._socket.disconnect();
-
-    this._connected = false;
-    this._running = false;
-
-    this.emit('disconnected', 'Disconnected by user');
+    this._disconnect('Manual disconnect', true);
   }
 
   public get playerManager(): IPlayerManager {
@@ -179,16 +177,22 @@ export default class Arcon extends EventEmitter implements Arcon {
     this._abortReconnection = value;
   }
 
-  private _disconnect(reason: string) {
+  private _disconnect(reason: string, abort = false) {
     if (!this._running) return;
 
-    this._socket.disconnect();
     this._connected = false;
     this._running = false;
 
+    this._socket.close();
+    this._socket.removeAllListeners();
+
+    if (abort) this._abortReconnection = true;
+
     this.emit('disconnected', reason);
 
-    if (this.autoReconnect) setTimeout(() => this._attemptReconnection(reason), 5_000);
+    setTimeout(() => {
+      this._attemptReconnection(reason);
+    }, 5_000);
   }
 
   public get connectedAt() {
@@ -246,7 +250,7 @@ export default class Arcon extends EventEmitter implements Arcon {
   private _checkConnection() {
     if (!this._running) return;
 
-    if (Date.now() - this._lastCommandReceived > 10_000) {
+    if (Date.now() - this._lastCommandReceived > 10_000 && this._connected) {
       this._disconnect('Connection timed out');
     }
   }
