@@ -85,6 +85,7 @@ type Events = {
   playerUpdated: (player: Player, info: PlayerUpdateInfo) => void;
   playerMessage: (player: Player, info: PlayerMessageInfo) => void;
   beLog: (log: BELog) => void;
+  error: (error: Error) => void;
 };
 
 interface IPlayerManager {
@@ -151,6 +152,7 @@ export default class Arcon extends EventEmitter implements Arcon {
 
     this._socket.on('connect', () => this._login());
     this._socket.on('message', (data) => this._handleMessage(data));
+    this._socket.on('error', (error) => this.emit('error', error));
 
     this._socket.connect(this.port, this.ip);
 
