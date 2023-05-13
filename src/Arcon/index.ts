@@ -125,19 +125,15 @@ export default class Arcon extends EventEmitter implements Arcon {
   private _running = false;
   private _lastSocketConnection = 0;
 
+  private _intervalHandle: NodeJS.Timer;
+
   constructor(options: ConnectionOptions) {
     super();
 
     Object.assign(this, options);
 
-    this._socket = createSocket('udp4');
     this._packetManager = new PacketManager();
     this._playerManager = new PlayerManager();
-
-    setInterval(() => {
-      this._sendCommandPacket();
-      this._checkConnection();
-    }, 1_000);
   }
 
   public connect() {
@@ -149,6 +145,11 @@ export default class Arcon extends EventEmitter implements Arcon {
     this._packetManager.resetSequence();
     this._playerManager.clearPlayers();
     this._socket = createSocket('udp4');
+
+    this._intervalHandle = setInterval(() => {
+      this._sendCommandPacket();
+      this._checkConnection();
+    }, 1_000);
 
     this._socket.on('connect', () => this._login());
     this._socket.on('message', (data) => this._handleMessage(data));
@@ -180,6 +181,8 @@ export default class Arcon extends EventEmitter implements Arcon {
   }
 
   private _disconnect(reason: string, abort = false) {
+    if (this._intervalHandle) clearInterval(this._intervalHandle);
+
     if (!this._running) return;
 
     this._connected = false;
