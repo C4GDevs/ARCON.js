@@ -12,6 +12,7 @@ enum PacketType {
 }
 
 interface Packet {
+  prefix: string;
   type: PacketType;
   checksum: string;
   data: Buffer;
@@ -103,6 +104,8 @@ export class Arcon extends EventEmitter {
       case PacketType.Message:
         this._handleMessage(packet.data);
         break;
+      default:
+        this.emit('error', new PacketError({ packet: msg, error: 'Invalid packet type', parsedPacket: packet }));
     }
   }
 
@@ -150,9 +153,10 @@ export class Arcon extends EventEmitter {
     const data = msg.slice(8);
 
     return {
-      type,
+      prefix,
       checksum,
-      data: data
+      type,
+      data
     };
   }
 }

@@ -8,7 +8,7 @@ interface PacketErrorDetails {
     checksum?: string;
     type?: number;
     sequenceNumber?: number;
-    payload?: string;
+    data?: Buffer;
   } | null;
 }
 
