@@ -4,6 +4,7 @@ import EventEmitter from 'events';
 import BaseError from './errors/base-error';
 import PacketError from './errors/packet-error';
 import CredentialError from './errors/credential-error';
+import ConnectionError from './errors/connection-error';
 
 enum PacketType {
   Login = 0x00,
@@ -22,6 +23,17 @@ type Events = {
   error: (err: BaseError) => void;
 };
 
+export interface ConnectionOptions {
+  ip: string;
+  port: number;
+  password: string;
+  /**
+   * The interval in milliseconds to send a `players` command to the server.
+   * Must be greater than 1000ms and less than 40000ms.
+   */
+  heartbeatInterval?: number;
+}
+
 export interface Arcon {
   on<U extends keyof Events>(event: U, listener: Events[U]): this;
   once<U extends keyof Events>(event: U, listener: Events[U]): this;
@@ -35,10 +47,19 @@ export class Arcon extends EventEmitter {
 
   private _socket = createSocket('udp4');
   private _sequenceNumber = 0;
+
   private _heartbeat: NodeJS.Timeout;
 
-  constructor(ip: string, port: number, password: string) {
+  private _lastPacketReceivedTime = 0;
+  private _packetTimeoutCheckInterval: NodeJS.Timeout;
+
+  constructor(options: ConnectionOptions) {
     super();
+
+    const { ip, port, password, heartbeatInterval = 5000 } = options;
+
+    // Clamp heartbeatInterval to be between 1000ms and 40000ms
+    const heartbeatTime = Math.min(Math.max(heartbeatInterval, 1000), 40000);
 
     this._ip = ip;
     this._port = port;
@@ -53,13 +74,21 @@ export class Arcon extends EventEmitter {
       this._heartbeat = setInterval(() => {
         const packet = this._createPacket(PacketType.Command, Buffer.from('players'));
         this._socket.send(packet, 0, packet.length);
-      }, 500);
+      }, heartbeatTime);
+
+      this._packetTimeoutCheckInterval = setInterval(() => {
+        if (Date.now() - this._lastPacketReceivedTime > 15000) {
+          this.emit('error', new ConnectionError({ error: 'No message received' }));
+          this.close();
+        }
+      }, 1000);
     });
   }
 
-  public close() {
-    this._socket.close();
+  public async close() {
     clearInterval(this._heartbeat);
+    clearInterval(this._packetTimeoutCheckInterval);
+    this._socket.close();
   }
 
   private _createPacket(type: PacketType, data: Buffer) {
@@ -86,7 +115,7 @@ export class Arcon extends EventEmitter {
     }
   }
 
-  private _handlePacket(msg: Buffer) {
+  private async _handlePacket(msg: Buffer) {
     const packet = this._validateMessage(msg);
 
     if (packet instanceof PacketError) {
@@ -94,12 +123,14 @@ export class Arcon extends EventEmitter {
       return;
     }
 
+    this._lastPacketReceivedTime = Date.now();
+
     switch (packet.type) {
       case PacketType.Login:
         this._handleLogin(packet.data);
         break;
       case PacketType.Command:
-        this._handleCommand(packet.data);
+        // this._handleCommand(packet.data);
         break;
       case PacketType.Message:
         this._handleMessage(packet.data);
