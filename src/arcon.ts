@@ -41,6 +41,8 @@ export interface Arcon {
 }
 
 export class Arcon extends EventEmitter {
+  public readonly heartbeatTime: number;
+
   private readonly _ip: string;
   private readonly _port: number;
   private readonly _password: string;
@@ -48,7 +50,8 @@ export class Arcon extends EventEmitter {
   private _socket = createSocket('udp4');
   private _sequenceNumber = 0;
 
-  private _heartbeat: NodeJS.Timeout;
+  private _heartbeatInterval: NodeJS.Timeout;
+  private _loginTimeout: NodeJS.Timeout;
 
   private _lastPacketReceivedTime = 0;
   private _packetTimeoutCheckInterval: NodeJS.Timeout;
@@ -59,7 +62,7 @@ export class Arcon extends EventEmitter {
     const { ip, port, password, heartbeatInterval = 5000 } = options;
 
     // Clamp heartbeatInterval to be between 1000ms and 40000ms
-    const heartbeatTime = Math.min(Math.max(heartbeatInterval, 1000), 40000);
+    this.heartbeatTime = Math.min(Math.max(heartbeatInterval, 1000), 40000);
 
     this._ip = ip;
     this._port = port;
@@ -70,24 +73,13 @@ export class Arcon extends EventEmitter {
 
     this._socket.connect(this._port, this._ip, () => {
       this._sendLogin();
-
-      this._heartbeat = setInterval(() => {
-        const packet = this._createPacket(PacketType.Command, Buffer.from('players'));
-        this._socket.send(packet, 0, packet.length);
-      }, heartbeatTime);
-
-      this._packetTimeoutCheckInterval = setInterval(() => {
-        if (Date.now() - this._lastPacketReceivedTime > 15000) {
-          this.emit('error', new ConnectionError({ error: 'No message received' }));
-          this.close();
-        }
-      }, 1000);
     });
   }
 
   public async close() {
-    clearInterval(this._heartbeat);
+    clearInterval(this._heartbeatInterval);
     clearInterval(this._packetTimeoutCheckInterval);
+    clearTimeout(this._loginTimeout);
     this._socket.close();
   }
 
@@ -107,12 +99,26 @@ export class Arcon extends EventEmitter {
   }
 
   private _handleLogin(data: Buffer) {
+    clearInterval(this._loginTimeout);
+
     if (data[0] === 0x00) {
       this.emit('error', new CredentialError({ error: 'Invalid password' }));
 
       this.close();
       return;
     }
+
+    this._heartbeatInterval = setInterval(() => {
+      const packet = this._createPacket(PacketType.Command, Buffer.from('players'));
+      this._socket.send(packet, 0, packet.length);
+    }, this.heartbeatTime);
+
+    this._packetTimeoutCheckInterval = setInterval(() => {
+      if (Date.now() - this._lastPacketReceivedTime > this.heartbeatTime * 2) {
+        this.emit('error', new ConnectionError({ error: 'No message received' }));
+        this.close();
+      }
+    }, 1000);
   }
 
   private async _handlePacket(msg: Buffer) {
@@ -153,6 +159,11 @@ export class Arcon extends EventEmitter {
     const packet = this._createPacket(0x00, Buffer.from(this._password, 'ascii'));
 
     this._socket.send(packet, 0, packet.length);
+
+    this._loginTimeout = setTimeout(() => {
+      this.emit('error', new ConnectionError({ error: 'Login timed out' }));
+      this.close();
+    }, 5000);
   }
 
   private _validateMessage(msg: Buffer): Packet | PacketError {
