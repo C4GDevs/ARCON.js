@@ -1,4 +1,4 @@
-import { createSocket } from 'dgram';
+import { Socket, createSocket } from 'dgram';
 import crc32 from 'buffer-crc32';
 import EventEmitter from 'events';
 import BaseError from './errors/base-error';
@@ -47,7 +47,7 @@ export class Arcon extends EventEmitter {
   private readonly _port: number;
   private readonly _password: string;
 
-  private _socket = createSocket('udp4');
+  private _socket: Socket;
   private _sequenceNumber = 0;
 
   private _heartbeatInterval: NodeJS.Timeout;
@@ -70,22 +70,22 @@ export class Arcon extends EventEmitter {
     this._port = port;
     this._password = password;
 
-    this._socket.on('message', (msg: Buffer) => this._handlePacket(msg));
-    this._socket.on('error', (err) => this.emit('error', err));
-
-    this._socket.connect(this._port, this._ip, () => {
-      this._sendLogin();
-    });
+    this._createSocket();
   }
 
-  public async close() {
+  public close(shouldReconnect = false) {
+    if (this._closed) return;
     clearInterval(this._heartbeatInterval);
     clearInterval(this._packetTimeoutCheckInterval);
     clearTimeout(this._loginTimeout);
 
-    if (!this._closed) this._socket.close();
+    this._socket.close();
 
-    this._closed = true;
+    if (shouldReconnect) {
+      setTimeout(() => this._createSocket(), 1000);
+    }
+
+    this._closed = !shouldReconnect;
   }
 
   private _createPacket(type: PacketType, data: Buffer) {
@@ -96,11 +96,27 @@ export class Arcon extends EventEmitter {
     if (type === PacketType.Command) {
       prefixedData = Buffer.from([0xff, type, this._sequenceNumber, ...data]);
       this._sequenceNumber++ & 0xff;
-    } else prefixedData = Buffer.from([0xff, type, ...data]);
+    } else {
+      prefixedData = Buffer.from([0xff, type, ...data]);
+    }
 
     const checksum = crc32(prefixedData).reverse();
 
     return Buffer.concat([header, checksum, prefixedData]);
+  }
+
+  private _createSocket() {
+    const socket = createSocket('udp4');
+
+    this._socket = socket;
+    this._sequenceNumber = 0;
+
+    socket.on('message', (msg: Buffer) => this._handlePacket(msg));
+    socket.on('error', (err) => this.emit('error', err));
+
+    socket.connect(this._port, this._ip, () => {
+      this._sendLogin();
+    });
   }
 
   private _handleLogin(data: Buffer) {
@@ -121,12 +137,12 @@ export class Arcon extends EventEmitter {
     this._packetTimeoutCheckInterval = setInterval(() => {
       if (Date.now() - this._lastPacketReceivedTime > this.heartbeatTime * 2) {
         this.emit('error', new ConnectionError({ error: 'No message received' }));
-        this.close();
+        this.close(true);
       }
     }, 1000);
   }
 
-  private async _handlePacket(msg: Buffer) {
+  private _handlePacket(msg: Buffer) {
     const packet = this._validateMessage(msg);
 
     if (packet instanceof PacketError) {
@@ -167,7 +183,7 @@ export class Arcon extends EventEmitter {
 
     this._loginTimeout = setTimeout(() => {
       this.emit('error', new ConnectionError({ error: 'Login timed out' }));
-      this.close();
+      this.close(true);
     }, 5000);
   }
 
