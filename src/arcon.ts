@@ -56,6 +56,8 @@ export class Arcon extends EventEmitter {
   private _lastPacketReceivedTime = 0;
   private _packetTimeoutCheckInterval: NodeJS.Timeout;
 
+  private _closed = false;
+
   constructor(options: ConnectionOptions) {
     super();
 
@@ -80,7 +82,10 @@ export class Arcon extends EventEmitter {
     clearInterval(this._heartbeatInterval);
     clearInterval(this._packetTimeoutCheckInterval);
     clearTimeout(this._loginTimeout);
-    this._socket.close();
+
+    if (!this._closed) this._socket.close();
+
+    this._closed = true;
   }
 
   private _createPacket(type: PacketType, data: Buffer) {
