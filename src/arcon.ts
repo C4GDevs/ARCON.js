@@ -58,6 +58,8 @@ export class Arcon extends EventEmitter {
 
   private _closed = false;
 
+  private _commandParts: Map<number, Buffer[]>;
+
   constructor(options: ConnectionOptions) {
     super();
 
@@ -110,6 +112,7 @@ export class Arcon extends EventEmitter {
 
     this._socket = socket;
     this._sequenceNumber = 0;
+    this._commandParts = new Map();
 
     socket.on('message', (msg: Buffer) => this._handlePacket(msg));
     socket.on('error', (err) => this.emit('error', err));
@@ -117,6 +120,29 @@ export class Arcon extends EventEmitter {
     socket.connect(this._port, this._ip, () => {
       this._sendLogin();
     });
+  }
+
+  private _handleCommand(data: Buffer) {
+    const sequenceNumber = data[0];
+    const isMultiPart = data[1] === 0x00;
+
+    if (isMultiPart) {
+      const partNumber = data[3];
+      const totalParts = data[2];
+      const partData = data.slice(4);
+
+      const parts = this._commandParts.get(sequenceNumber) || [];
+
+      if (!this._commandParts.has(sequenceNumber)) {
+        this._commandParts.set(sequenceNumber, parts);
+      }
+
+      parts[partNumber] = partData;
+
+      if (parts.length === totalParts) {
+        this._commandParts.delete(sequenceNumber);
+      }
+    }
   }
 
   private _handleLogin(data: Buffer) {
@@ -151,13 +177,12 @@ export class Arcon extends EventEmitter {
     }
 
     this._lastPacketReceivedTime = Date.now();
-
     switch (packet.type) {
       case PacketType.Login:
         this._handleLogin(packet.data);
         break;
       case PacketType.Command:
-        // this._handleCommand(packet.data);
+        this._handleCommand(packet.data);
         break;
       case PacketType.Message:
         this._handleMessage(packet.data);
