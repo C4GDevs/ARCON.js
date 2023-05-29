@@ -6,6 +6,23 @@ import PacketError from './errors/packet-error';
 import CredentialError from './errors/credential-error';
 import ConnectionError from './errors/connection-error';
 
+const serverMessageFormats = {
+  playerIdentifier: /^Player #([0-9]+) (.+) \(((?:[0-9]{1,3}.|){4}):[0-9]+\) connected$/,
+  playerJoin: /^Verified GUID \(([a-z0-9]{32})\) of player #([0-9]+)/,
+  playerLeave: /^Player #([0-9]+) .+ disconnected$/,
+  playerKicked: /^Player #([0-9]+) .+ has been kicked by BattlEye: (.+)$/
+} as const;
+
+interface Identifier {
+  id: number;
+  name: string;
+  ip: string;
+}
+
+interface Player extends Identifier {
+  guid: string;
+}
+
 enum PacketType {
   Login = 0x00,
   Command = 0x01,
@@ -21,6 +38,8 @@ interface Packet {
 
 type Events = {
   error: (err: BaseError) => void;
+  playerJoin: (player: Player) => void;
+  playerLeave: (player: Player) => void;
 };
 
 export interface ConnectionOptions {
@@ -59,6 +78,9 @@ export class Arcon extends EventEmitter {
   private _closed = false;
 
   private _commandParts: Map<number, Buffer[]>;
+
+  private _players: Map<number, Player>;
+  private _identifiers: Map<number, Identifier>;
 
   constructor(options: ConnectionOptions) {
     super();
@@ -114,6 +136,9 @@ export class Arcon extends EventEmitter {
     this._sequenceNumber = 0;
     this._commandParts = new Map();
 
+    this._players = new Map();
+    this._identifiers = new Map();
+
     socket.on('message', (msg: Buffer) => this._handlePacket(msg));
     socket.on('error', (err) => this.emit('error', err));
 
@@ -141,6 +166,8 @@ export class Arcon extends EventEmitter {
 
       if (parts.length === totalParts) {
         this._commandParts.delete(sequenceNumber);
+      } else {
+        return;
       }
     }
   }
@@ -199,6 +226,81 @@ export class Arcon extends EventEmitter {
     // Battleye expects a response containing the sequence number
     const packet = this._createPacket(0x02, Buffer.from([sequence]));
     this._socket.send(packet, 0, packet.length);
+
+    // Player identifier (still joining)
+    if (serverMessageFormats.playerIdentifier.test(payload)) {
+      const [, id, name, ip] = serverMessageFormats.playerIdentifier.exec(payload) || [null, null, null, null];
+
+      if (!id || !name || !ip) return;
+
+      const identifier: Identifier = {
+        id: parseInt(id),
+        name,
+        ip
+      };
+
+      this._identifiers.set(identifier.id, identifier);
+
+      return;
+    }
+
+    // Player finished joining
+    if (serverMessageFormats.playerJoin.test(payload)) {
+      const [, guid, id] = serverMessageFormats.playerJoin.exec(payload) || [null, null, null];
+
+      if (!guid || !id) return;
+
+      const identifier = this._identifiers.get(parseInt(id));
+
+      if (!identifier) return;
+
+      const player: Player = {
+        ...identifier,
+        guid
+      };
+
+      this._identifiers.delete(player.id);
+
+      this._players.set(player.id, player);
+
+      this.emit('playerJoin', player);
+
+      return;
+    }
+
+    // Player leave
+    if (serverMessageFormats.playerLeave.test(payload)) {
+      const [, id] = serverMessageFormats.playerLeave.exec(payload) || [null, null];
+
+      if (!id) return;
+
+      const player = this._players.get(parseInt(id));
+
+      if (!player) return;
+
+      this.emit('playerLeave', player);
+
+      this._players.delete(parseInt(id));
+
+      return;
+    }
+
+    // Player kicked
+    if (serverMessageFormats.playerKicked.test(payload)) {
+      const [, id, reason] = serverMessageFormats.playerKicked.exec(payload) || [null, null];
+
+      if (!id) return;
+
+      const player = this._players.get(parseInt(id));
+
+      if (!player) return;
+
+      this.emit('playerLeave', player);
+
+      this._players.delete(parseInt(id));
+
+      return;
+    }
   }
 
   private _sendLogin() {
