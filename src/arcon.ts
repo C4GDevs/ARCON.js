@@ -6,8 +6,12 @@ import PacketError from './errors/packet-error';
 import CredentialError from './errors/credential-error';
 import ConnectionError from './errors/connection-error';
 
+const commandResponseFormats = {
+  playerList: /^Players on server:/
+} as const;
+
 const serverMessageFormats = {
-  playerIdentifier: /^Player #([0-9]+) (.+) \(((?:[0-9]{1,3}.|){4}):[0-9]+\) connected$/,
+  playerIdentifier: /^Player #([0-9]+) (.+) \(((?:[0-9]{1,3}\.){3}[0-9]{1,3})\):[0-9]+ connected$/,
   playerJoin: /^Verified GUID \(([a-z0-9]{32})\) of player #([0-9]+)/,
   playerLeave: /^Player #([0-9]+) .+ disconnected$/,
   playerKicked: /^Player #([0-9]+) .+ has been kicked by BattlEye: (.+)$/
@@ -112,6 +116,10 @@ export class Arcon extends EventEmitter {
     this._closed = !shouldReconnect;
   }
 
+  public get players() {
+    return [...this._players.values()];
+  }
+
   private _createPacket(type: PacketType, data: Buffer) {
     const header = Buffer.from('BE');
 
@@ -166,9 +174,9 @@ export class Arcon extends EventEmitter {
 
       if (parts.length === totalParts) {
         this._commandParts.delete(sequenceNumber);
-      } else {
-        return;
       }
+    } else {
+      this._processCommand(data.slice(1).toString());
     }
   }
 
@@ -278,9 +286,9 @@ export class Arcon extends EventEmitter {
 
       if (!player) return;
 
-      this.emit('playerLeave', player);
-
       this._players.delete(parseInt(id));
+
+      this.emit('playerLeave', player);
 
       return;
     }
@@ -295,11 +303,39 @@ export class Arcon extends EventEmitter {
 
       if (!player) return;
 
-      this.emit('playerLeave', player);
-
       this._players.delete(parseInt(id));
 
+      this.emit('playerLeave', player);
+
       return;
+    }
+  }
+
+  private _processCommand(data: string) {
+    if (commandResponseFormats.playerList.test(data)) {
+      const playerList = data.split('\n').slice(3, -1);
+
+      for (const playerLine of playerList) {
+        const regexp =
+          /^([0-9]+)\s+((?:[0-9]{1,3}\.){3}[0-9]{1,3}):[0-9]+\s+[0-9]+\s+([0-9a-z]{32})\(OK\)\s+(.+?)((?:$|\s+\(Lobby\)))/;
+
+        const [, id, ip, guid, name] = regexp.exec(playerLine) || [null, null, null, null, null];
+
+        if (!id || !ip || !guid || !name) continue;
+
+        if (this._players.has(parseInt(id))) continue;
+
+        const player: Player = {
+          id: parseInt(id),
+          ip,
+          guid,
+          name
+        };
+
+        this._players.set(player.id, player);
+
+        this.emit('playerJoin', player);
+      }
     }
   }
 
