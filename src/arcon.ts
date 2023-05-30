@@ -5,7 +5,6 @@ import BaseError from './errors/base-error';
 import PacketError from './errors/packet-error';
 import CredentialError from './errors/credential-error';
 import ConnectionError from './errors/connection-error';
-import { appendFile } from 'fs/promises';
 
 const commandResponseFormats = {
   playerList: /^Players on server:/
