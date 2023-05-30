@@ -5,13 +5,14 @@ import BaseError from './errors/base-error';
 import PacketError from './errors/packet-error';
 import CredentialError from './errors/credential-error';
 import ConnectionError from './errors/connection-error';
+import { appendFile } from 'fs/promises';
 
 const commandResponseFormats = {
   playerList: /^Players on server:/
 } as const;
 
 const serverMessageFormats = {
-  playerIdentifier: /^Player #([0-9]+) (.+) \(((?:[0-9]{1,3}\.){3}[0-9]{1,3})\):[0-9]+ connected$/,
+  playerIdentifier: /^Player #([0-9]+) (.+) \(((?:[0-9]{1,3}\.){3}[0-9]{1,3}):[0-9]+\) connected$/,
   playerJoin: /^Verified GUID \(([a-z0-9]{32})\) of player #([0-9]+)/,
   playerLeave: /^Player #([0-9]+) .+ disconnected$/,
   playerKicked: /^Player #([0-9]+) .+ has been kicked by BattlEye: (.+)$/
@@ -86,6 +87,8 @@ export class Arcon extends EventEmitter {
   private _players: Map<number, Player>;
   private _identifiers: Map<number, Identifier>;
 
+  private _initialPlayersPulled: boolean;
+
   constructor(options: ConnectionOptions) {
     super();
 
@@ -146,6 +149,7 @@ export class Arcon extends EventEmitter {
 
     this._players = new Map();
     this._identifiers = new Map();
+    this._initialPlayersPulled = false;
 
     socket.on('message', (msg: Buffer) => this._handlePacket(msg));
     socket.on('error', (err) => this.emit('error', err));
@@ -174,6 +178,7 @@ export class Arcon extends EventEmitter {
 
       if (parts.length === totalParts) {
         this._commandParts.delete(sequenceNumber);
+        this._processCommand(Buffer.concat(parts).toString());
       }
     } else {
       this._processCommand(data.slice(1).toString());
@@ -190,8 +195,11 @@ export class Arcon extends EventEmitter {
       return;
     }
 
+    const packet = this._createPacket(PacketType.Command, Buffer.from('players'));
+    this._socket.send(packet, 0, packet.length);
+
     this._heartbeatInterval = setInterval(() => {
-      const packet = this._createPacket(PacketType.Command, Buffer.from('players'));
+      const packet = this._createPacket(PacketType.Command, Buffer.from(''));
       this._socket.send(packet, 0, packet.length);
     }, this.heartbeatTime);
 
@@ -239,7 +247,9 @@ export class Arcon extends EventEmitter {
     if (serverMessageFormats.playerIdentifier.test(payload)) {
       const [, id, name, ip] = serverMessageFormats.playerIdentifier.exec(payload) || [null, null, null, null];
 
-      if (!id || !name || !ip) return;
+      if (!id || !name || !ip) {
+        return;
+      }
 
       const identifier: Identifier = {
         id: parseInt(id),
@@ -256,11 +266,15 @@ export class Arcon extends EventEmitter {
     if (serverMessageFormats.playerJoin.test(payload)) {
       const [, guid, id] = serverMessageFormats.playerJoin.exec(payload) || [null, null, null];
 
-      if (!guid || !id) return;
+      if (!guid || !id) {
+        return;
+      }
 
       const identifier = this._identifiers.get(parseInt(id));
 
-      if (!identifier) return;
+      if (!identifier) {
+        return;
+      }
 
       const player: Player = {
         ...identifier,
@@ -280,11 +294,15 @@ export class Arcon extends EventEmitter {
     if (serverMessageFormats.playerLeave.test(payload)) {
       const [, id] = serverMessageFormats.playerLeave.exec(payload) || [null, null];
 
-      if (!id) return;
+      if (!id) {
+        return;
+      }
 
       const player = this._players.get(parseInt(id));
 
-      if (!player) return;
+      if (!player) {
+        return;
+      }
 
       this._players.delete(parseInt(id));
 
@@ -297,11 +315,15 @@ export class Arcon extends EventEmitter {
     if (serverMessageFormats.playerKicked.test(payload)) {
       const [, id, reason] = serverMessageFormats.playerKicked.exec(payload) || [null, null];
 
-      if (!id) return;
+      if (!id) {
+        return;
+      }
 
       const player = this._players.get(parseInt(id));
 
-      if (!player) return;
+      if (!player) {
+        return;
+      }
 
       this._players.delete(parseInt(id));
 
@@ -317,13 +339,23 @@ export class Arcon extends EventEmitter {
 
       for (const playerLine of playerList) {
         const regexp =
-          /^([0-9]+)\s+((?:[0-9]{1,3}\.){3}[0-9]{1,3}):[0-9]+\s+[0-9]+\s+([0-9a-z]{32})\(OK\)\s+(.+?)((?:$|\s+\(Lobby\)))/;
+          /^([0-9]+)\s+((?:[0-9]{1,3}\.){3}[0-9]{1,3}):[0-9]+\s+[0-9-]+\s+([0-9a-z]{32})\(OK\)\s+(.+?)((?:$|\s+\(Lobby\)))/;
 
         const [, id, ip, guid, name] = regexp.exec(playerLine) || [null, null, null, null, null];
 
         if (!id || !ip || !guid || !name) continue;
 
-        if (this._players.has(parseInt(id))) continue;
+        if (this._players.has(parseInt(id))) {
+          const player = this._players.get(parseInt(id));
+
+          if (!player) continue;
+
+          if (!player.ip) player.ip = ip;
+
+          continue;
+        }
+
+        if (this._initialPlayersPulled) continue;
 
         const player: Player = {
           id: parseInt(id),
@@ -336,6 +368,8 @@ export class Arcon extends EventEmitter {
 
         this.emit('playerJoin', player);
       }
+
+      this._initialPlayersPulled = true;
     }
   }
 
