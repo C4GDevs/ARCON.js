@@ -1,10 +1,10 @@
 import { Socket, createSocket } from 'dgram';
 import crc32 from 'buffer-crc32';
 import EventEmitter from 'events';
-import BaseError from './errors/base-error';
 import PacketError from './errors/packet-error';
 import CredentialError from './errors/credential-error';
 import ConnectionError from './errors/connection-error';
+import { ConnectionOptions, Events, Identifier, Packet, PacketType, Player } from './types';
 
 const commandResponseFormats = {
   playerList: /^Players on server:/
@@ -16,46 +16,6 @@ const serverMessageFormats = {
   playerLeave: /^Player #([0-9]+) .+ disconnected$/,
   playerKicked: /^Player #([0-9]+) .+ has been kicked by BattlEye: (.+)$/
 } as const;
-
-interface Identifier {
-  id: number;
-  name: string;
-  ip: string;
-}
-
-export interface Player extends Identifier {
-  guid: string;
-}
-
-enum PacketType {
-  Login = 0x00,
-  Command = 0x01,
-  Message = 0x02
-}
-
-interface Packet {
-  prefix: string;
-  type: PacketType;
-  checksum: string;
-  data: Buffer;
-}
-
-type Events = {
-  error: (err: BaseError) => void;
-  playerJoin: (player: Player) => void;
-  playerLeave: (player: Player) => void;
-};
-
-export interface ConnectionOptions {
-  ip: string;
-  port: number;
-  password: string;
-  /**
-   * The interval in milliseconds to send a `players` command to the server.
-   * Must be greater than 1000ms and less than 40000ms.
-   */
-  heartbeatInterval?: number;
-}
 
 export interface Arcon {
   on<U extends keyof Events>(event: U, listener: Events[U]): this;

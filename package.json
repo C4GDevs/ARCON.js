@@ -16,10 +16,12 @@
     "index.d.ts",
     "arcon.js",
     "arcon.d.ts",
-    "errors/**/*"
+    "errors/**/*",
+    "types.d.ts",
+    "types.js"
   ],
   "scripts": {
-    "clean": "rimraf errors arcon.d.ts arcon.js index.js index.d.ts",
+    "clean": "rimraf errors arcon.d.ts arcon.js index.js index.d.ts types.d.ts types.js",
     "test": "mocha -r ts-node/register 'tests/**/*.ts' --exit",
     "lint": "prettier --check . && eslint src",
     "prepublishOnly": "npm run clean && npm run lint && npm run test && tsc",
