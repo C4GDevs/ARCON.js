@@ -1,4 +1,6 @@
 node_modules
-Arcon/
-index.js
+errors/
+arcon.d.ts
+arcon.js
 index.d.ts
+index.js

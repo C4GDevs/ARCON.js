@@ -23,7 +23,7 @@ interface Identifier {
   ip: string;
 }
 
-interface Player extends Identifier {
+export interface Player extends Identifier {
   guid: string;
 }
 
