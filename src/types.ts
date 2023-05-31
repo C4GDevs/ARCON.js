@@ -29,6 +29,9 @@ export type Events = {
   playerLeave: (player: Player) => void;
 };
 
+/**
+ * Options for Arcon constructor.
+ */
 export interface ConnectionOptions {
   ip: string;
   port: number;

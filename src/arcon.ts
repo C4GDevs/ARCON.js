@@ -23,14 +23,39 @@ export interface Arcon {
   emit<U extends keyof Events>(event: U, ...args: Parameters<Events[U]>): boolean;
 }
 
+/**
+ * The main class, entry point to Arcon.
+ */
 export class Arcon extends EventEmitter {
+  /**
+   * The interval in milliseconds to send a `players` command to the server.
+   */
   public readonly heartbeatTime: number;
 
-  private readonly _ip: string;
-  private readonly _port: number;
-  private readonly _password: string;
+  /**
+   * The IP address of the remote host.
+   */
+  public readonly ip: string;
 
+  /**
+   * The port of the remote host.
+   */
+  public readonly port: number;
+
+  /**
+   * The password to use when connecting to the server.
+   */
+  public readonly password: string;
+
+  /**
+   * The underlying socket.
+   */
   private _socket: Socket;
+
+  /**
+   * Number incremented for each command sent to the server.
+   * Resets to 0 after 255.
+   */
   private _sequenceNumber = 0;
 
   private _heartbeatInterval: NodeJS.Timeout;
@@ -39,6 +64,9 @@ export class Arcon extends EventEmitter {
   private _lastPacketReceivedTime = 0;
   private _packetTimeoutCheckInterval: NodeJS.Timeout;
 
+  /**
+   * Whether the connection has been closed.
+   */
   private _closed = false;
 
   private _commandParts: Map<number, Buffer[]>;
@@ -48,6 +76,10 @@ export class Arcon extends EventEmitter {
 
   private _initialPlayersPulled: boolean;
 
+  /**
+   *
+   * @param options Options for the client.
+   */
   constructor(options: ConnectionOptions) {
     super();
 
@@ -56,13 +88,19 @@ export class Arcon extends EventEmitter {
     // Clamp heartbeatInterval to be between 1000ms and 40000ms
     this.heartbeatTime = Math.min(Math.max(heartbeatInterval, 1000), 40000);
 
-    this._ip = ip;
-    this._port = port;
-    this._password = password;
+    this.ip = ip;
+    this.port = port;
+    this.password = password;
 
     this._createSocket();
   }
 
+  /**
+   * Closes the connection to the server. If `shouldReconnect` is true, it will
+   * attempt to reconnect after 1 second. Else, it will close the underlying socket and
+   * it cannot be reopened.
+   * @param shouldReconnect Whether to reconnect after closing.
+   */
   public close(shouldReconnect = false) {
     if (this._closed) return;
     clearInterval(this._heartbeatInterval);
@@ -78,10 +116,16 @@ export class Arcon extends EventEmitter {
     this._closed = !shouldReconnect;
   }
 
+  /**
+   * All of the {@link Player}s currently on the server.
+   */
   public get players() {
     return [...this._players.values()];
   }
 
+  /**
+   * Creates a packet to send to the server.
+   */
   private _createPacket(type: PacketType, data: Buffer) {
     const header = Buffer.from('BE');
 
@@ -99,6 +143,9 @@ export class Arcon extends EventEmitter {
     return Buffer.concat([header, checksum, prefixedData]);
   }
 
+  /**
+   * Creates a socket and sets up event listeners.
+   */
   private _createSocket() {
     const socket = createSocket('udp4');
 
@@ -113,15 +160,21 @@ export class Arcon extends EventEmitter {
     socket.on('message', (msg: Buffer) => this._handlePacket(msg));
     socket.on('error', (err) => this.emit('error', err));
 
-    socket.connect(this._port, this._ip, () => {
+    socket.connect(this.port, this.ip, () => {
       this._sendLogin();
     });
   }
 
+  /**
+   * Receives a command packet from the server.
+   */
   private _handleCommand(data: Buffer) {
+    // Single packet format: sequence + data
+    // Multi packet format:  sequence + 0x00 + total packets + packet index + data
     const sequenceNumber = data[0];
     const isMultiPart = data[1] === 0x00;
 
+    // Data was too large to fit in one packet
     if (isMultiPart) {
       const partNumber = data[3];
       const totalParts = data[2];
@@ -135,6 +188,7 @@ export class Arcon extends EventEmitter {
 
       parts[partNumber] = partData;
 
+      // All parts received
       if (parts.length === totalParts) {
         this._commandParts.delete(sequenceNumber);
         this._processCommand(Buffer.concat(parts).toString());
@@ -144,9 +198,13 @@ export class Arcon extends EventEmitter {
     }
   }
 
+  /**
+   * Checks if the login was successful, and if so, starts the heartbeat interval.
+   */
   private _handleLogin(data: Buffer) {
     clearInterval(this._loginTimeout);
 
+    // 0x00 = bad password, 0x01 = good password
     if (data[0] === 0x00) {
       this.emit('error', new CredentialError({ error: 'Invalid password' }));
 
@@ -154,14 +212,17 @@ export class Arcon extends EventEmitter {
       return;
     }
 
+    // Fetch players right away to populate this._players
     const packet = this._createPacket(PacketType.Command, Buffer.from('players'));
     this._socket.send(packet, 0, packet.length);
 
+    // Send heartbeat every `this.heartbeatTime` milliseconds
     this._heartbeatInterval = setInterval(() => {
       const packet = this._createPacket(PacketType.Command, Buffer.from(''));
       this._socket.send(packet, 0, packet.length);
     }, this.heartbeatTime);
 
+    // Check if we've received a packet within the last `this.heartbeatTime` * 2 milliseconds
     this._packetTimeoutCheckInterval = setInterval(() => {
       if (Date.now() - this._lastPacketReceivedTime > this.heartbeatTime * 2) {
         this.emit('error', new ConnectionError({ error: 'No message received' }));
@@ -170,6 +231,9 @@ export class Arcon extends EventEmitter {
     }, 1000);
   }
 
+  /**
+   * Receives a packet from the server and decided what to do with it.
+   */
   private _handlePacket(msg: Buffer) {
     const packet = this._validateMessage(msg);
 
@@ -179,6 +243,7 @@ export class Arcon extends EventEmitter {
     }
 
     this._lastPacketReceivedTime = Date.now();
+
     switch (packet.type) {
       case PacketType.Login:
         this._handleLogin(packet.data);
@@ -194,6 +259,9 @@ export class Arcon extends EventEmitter {
     }
   }
 
+  /**
+   * Receives a message packet from the server.
+   */
   private _handleMessage(data: Buffer) {
     const sequence = data[0];
     const payload = data.slice(1).toString();
@@ -292,7 +360,11 @@ export class Arcon extends EventEmitter {
     }
   }
 
+  /**
+   * Processes a command response from the server.
+   */
   private _processCommand(data: string) {
+    // `players` command response
     if (commandResponseFormats.playerList.test(data)) {
       const playerList = data.split('\n').slice(3, -1);
 
@@ -314,6 +386,7 @@ export class Arcon extends EventEmitter {
           continue;
         }
 
+        // Removes a race condition with the playerJoin server message event
         if (this._initialPlayersPulled) continue;
 
         const player: Player = {
@@ -332,17 +405,24 @@ export class Arcon extends EventEmitter {
     }
   }
 
+  /**
+   * Sends the login packet to the server.
+   */
   private _sendLogin() {
-    const packet = this._createPacket(0x00, Buffer.from(this._password, 'ascii'));
+    const packet = this._createPacket(0x00, Buffer.from(this.password, 'ascii'));
 
     this._socket.send(packet, 0, packet.length);
 
+    // If we don't receive a login response within 5 seconds, close the connection.
     this._loginTimeout = setTimeout(() => {
       this.emit('error', new ConnectionError({ error: 'Login timed out' }));
       this.close(true);
     }, 5000);
   }
 
+  /**
+   * Validates a packet received from the server.
+   */
   private _validateMessage(msg: Buffer): Packet | PacketError {
     /**
      * Packet formats:
