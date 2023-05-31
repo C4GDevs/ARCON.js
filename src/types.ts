@@ -8,6 +8,7 @@ export interface Identifier {
 
 export interface Player extends Identifier {
   guid: string;
+  lobby: boolean;
 }
 
 export enum PacketType {
@@ -27,6 +28,7 @@ export type Events = {
   error: (err: BaseError) => void;
   playerJoin: (player: Player) => void;
   playerLeave: (player: Player) => void;
+  playerUpdate: (player: Player, changes: Array<keyof Player>) => void;
   connected: () => void;
 };
 

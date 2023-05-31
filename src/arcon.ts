@@ -222,7 +222,7 @@ export class Arcon extends EventEmitter {
 
     // Send heartbeat every `this.heartbeatTime` milliseconds
     this._heartbeatInterval = setInterval(() => {
-      const packet = this._createPacket(PacketType.Command, Buffer.from(''));
+      const packet = this._createPacket(PacketType.Command, Buffer.from('players'));
       this._socket.send(packet, 0, packet.length);
     }, this.heartbeatTime);
 
@@ -311,7 +311,8 @@ export class Arcon extends EventEmitter {
 
       const player: Player = {
         ...identifier,
-        guid
+        guid,
+        lobby: true
       };
 
       this._identifiers.delete(player.id);
@@ -376,18 +377,35 @@ export class Arcon extends EventEmitter {
 
       for (const playerLine of playerList) {
         const regexp =
-          /^([0-9]+)\s+((?:[0-9]{1,3}\.){3}[0-9]{1,3}):[0-9]+\s+[0-9-]+\s+([0-9a-z]{32})\(OK\)\s+(.+?)((?:$|\s+\(Lobby\)))/;
+          /^([0-9]+)\s+((?:[0-9]{1,3}\.){3}[0-9]{1,3}):[0-9]+\s+[0-9-]+\s+([0-9a-z]{32})\(OK\)\s+(.+?)((?:$|\s+\(Lobby\)$))/;
 
-        const [, id, ip, guid, name] = regexp.exec(playerLine) || [null, null, null, null, null];
+        const [, id, ip, guid, name, isInLobby] = regexp.exec(playerLine) || [null, null, null, null, null, null];
 
-        if (!id || !ip || !guid || !name) continue;
+        if (!id || !ip || !guid || !name || isInLobby === null) continue;
 
         if (this._players.has(parseInt(id))) {
           const player = this._players.get(parseInt(id));
 
           if (!player) continue;
 
-          if (!player.ip) player.ip = ip;
+          const changes = new Array<keyof Player>();
+
+          if (!player.ip) {
+            player.ip = ip;
+            changes.push('ip');
+          }
+
+          if (player.lobby && isInLobby === '') {
+            player.lobby = false;
+            changes.push('lobby');
+          } else if (!player.lobby && isInLobby !== '') {
+            player.lobby = true;
+            changes.push('lobby');
+          }
+
+          if (changes.length > 0) {
+            this.emit('playerUpdate', player, changes);
+          }
 
           continue;
         }
@@ -399,7 +417,8 @@ export class Arcon extends EventEmitter {
           id: parseInt(id),
           ip,
           guid,
-          name
+          name,
+          lobby: isInLobby !== ''
         };
 
         this._players.set(player.id, player);
