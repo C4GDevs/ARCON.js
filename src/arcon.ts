@@ -76,6 +76,8 @@ export class Arcon extends EventEmitter {
 
   private _initialPlayersPulled: boolean;
 
+  private _started = false;
+
   /**
    *
    * @param options Options for the client.
@@ -91,8 +93,10 @@ export class Arcon extends EventEmitter {
     this.ip = ip;
     this.port = port;
     this.password = password;
+  }
 
-    this._createSocket();
+  public start() {
+    if (!this._started) this._createSocket();
   }
 
   /**
