@@ -27,6 +27,7 @@ export type Events = {
   error: (err: BaseError) => void;
   playerJoin: (player: Player) => void;
   playerLeave: (player: Player) => void;
+  connected: () => void;
 };
 
 /**

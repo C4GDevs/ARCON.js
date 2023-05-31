@@ -233,6 +233,8 @@ export class Arcon extends EventEmitter {
         this.close(true);
       }
     }, 1000);
+
+    this.emit('connected');
   }
 
   /**
