@@ -93,6 +93,12 @@ interface IPlayerManager {
   resolve: (identifier: PlayerResolvable) => Player | null;
 }
 
+interface Identifier {
+  id: number;
+  name: string;
+  ip: string;
+}
+
 export default interface Arcon {
   on<U extends keyof Events>(event: U, listener: Events[U]): this;
 
@@ -125,6 +131,8 @@ export default class Arcon extends EventEmitter implements Arcon {
   private _running = false;
   private _lastSocketConnection = 0;
 
+  private _joiningPlayers: Map<number, Identifier>;
+
   private _intervalHandle: NodeJS.Timer;
 
   constructor(options: ConnectionOptions) {
@@ -141,6 +149,7 @@ export default class Arcon extends EventEmitter implements Arcon {
     this._commandPacketAttempts = 0;
     this._lastCommandReceived = 0;
     this._hasInitializedPlayers = false;
+    this._joiningPlayers = new Map();
 
     this._packetManager.resetSequence();
     this._playerManager.clearPlayers();
@@ -178,6 +187,14 @@ export default class Arcon extends EventEmitter implements Arcon {
 
   public set abortReconnection(value: boolean) {
     this._abortReconnection = value;
+  }
+
+  public sendCommand(data: string) {
+    if (!this._connected) return;
+
+    const buffer = this._packetManager.buildBuffer(PacketTypes.Command, data);
+
+    this._socket.send(buffer);
   }
 
   private _disconnect(reason: string, abort = false) {
@@ -341,7 +358,7 @@ export default class Arcon extends EventEmitter implements Arcon {
 
         if (this._hasInitializedPlayers) continue;
 
-        const player = new Player(id, guid, name, lobby);
+        const player = new Player(id, guid, name, lobby, ip);
 
         this._playerManager.players.set(id, player);
 
@@ -357,6 +374,18 @@ export default class Arcon extends EventEmitter implements Arcon {
 
     const sendResponse = () => this._socket.send(buffer);
 
+    if (/^Player #([0-9]+) (.+) \(((?:[0-9]{1,3}\.){3}[0-9]{1,3}):[0-9]+\) connected$/.test(packet.data)) {
+      const match = /^Player #([0-9]+) (.+) \(((?:[0-9]{1,3}\.){3}[0-9]{1,3}):[0-9]+\) connected$/.exec(packet.data);
+
+      if (!match) return sendResponse();
+
+      const [, idStr, name, ip] = match;
+
+      const identifier = { id: Number(idStr), name, ip };
+
+      this._joiningPlayers.set(identifier.id, identifier);
+    }
+
     if (/^Verified GUID/.test(packet.data)) {
       const match = /^Verified GUID \(([a-z0-9]{32})\) of player #(\d+) (.+)$/.exec(packet.data);
 
@@ -365,6 +394,13 @@ export default class Arcon extends EventEmitter implements Arcon {
       const [, guid, id, name] = match;
 
       const player = new Player(Number(id), guid, name, true);
+
+      const identifier = this._joiningPlayers.get(player.id);
+
+      if (identifier) {
+        player.ip = identifier.ip;
+        this._joiningPlayers.delete(player.id);
+      }
 
       this._playerManager.players.set(player.id, player);
 
