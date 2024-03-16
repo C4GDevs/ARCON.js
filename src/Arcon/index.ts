@@ -46,7 +46,8 @@ export enum MessageChannels {
   Command = 'Command',
   Group = 'Group',
   Direct = 'Direct',
-  Vehicle = 'Vehicle'
+  Vehicle = 'Vehicle',
+  Unknown = 'Unknown'
 }
 
 export type ConnectionOptions = {
@@ -443,8 +444,8 @@ export default class Arcon extends EventEmitter implements Arcon {
       }
     }
 
-    if (/^\(Global|Side|Command|Group|Direct|Vehicle\) /.test(packet.data)) {
-      const match = /^\((Global|Side|Command|Group|Direct|Vehicle)\) (.+)$/.exec(packet.data);
+    if (/^\(Global|Side|Command|Group|Direct|Vehicle|Unknown\) /.test(packet.data)) {
+      const match = /^\((Global|Side|Command|Group|Direct|Vehicle|Unknown)\) (.+)$/.exec(packet.data);
 
       if (!match) return sendResponse();
 
