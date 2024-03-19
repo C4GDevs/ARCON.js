@@ -124,6 +124,12 @@ class Arcon extends EventEmitter {
     }
   }
 
+  /**
+   * Check if the connection is still alive, and send a heartbeat packet if necessary.
+   *
+   * RCON protocol expects an empty command packet at least every 45 seconds if no other packets are sent.
+   * We've lowered this drastically to minimize the time it takes to detect a dead connection.
+   */
   private _heartbeat() {
     if (!this._connected) return;
 
