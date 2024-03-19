@@ -40,6 +40,8 @@ class Arcon extends EventEmitter {
     this._host = host;
     this._port = port;
     this._password = password;
+
+    setInterval(() => this._heartbeat(), 1000);
   }
 
   /**
@@ -121,6 +123,23 @@ class Arcon extends EventEmitter {
       return;
     }
   }
+
+  private _heartbeat() {
+    if (!this._connected) return;
+
+    const now = new Date();
+    const delta = now.getTime() - this._lastPacketReceivedAt.getTime();
+
+    // If we haven't received a packet in 10 seconds, the connection is dead.
+    if (delta > 10_000) {
+      this.emit('error', new Error('Connection timeout'));
+      this.close();
+      return;
+    }
+
+    // Send a heartbeat packet every 2.5 seconds.
+    if (delta > 2_500) {
+      const heartbeat = SequencePacket.create(PacketTypes.Command, null, this._sequenceNumber++ % 256);
       this._socket.send(heartbeat.toBuffer());
     }
   }
