@@ -17,36 +17,10 @@ export enum PacketTypes {
  * DATA is the rest of the packet
  */
 
+/**
+ * A packet sent or received from the server.
+ */
 export class Packet {
-  readonly prefix: string;
-  readonly checksum: string;
-  readonly type: PacketTypes;
-  readonly data: Buffer;
-
-  constructor(checksum: string, type: PacketTypes, data: Buffer) {
-    this.prefix = 'BE';
-    this.checksum = checksum;
-    this.type = type;
-    this.data = data;
-  }
-
-  static create(type: PacketTypes, data: Buffer) {
-    const checksum = crc32(Buffer.from([0xff, type, ...data])).reverse();
-    return new Packet(checksum.toString(), type, data);
-  }
-
-  toBuffer() {
-    const header = Buffer.from('BE');
-
-    let prefixedData = Buffer.from([0xff, this.type, ...this.data]);
-
-    const checksum = crc32(prefixedData).reverse();
-
-    return Buffer.concat([header, checksum, prefixedData]);
-  }
-}
-
-export class SequencePacket {
   readonly prefix: string;
   readonly type: PacketTypes;
   readonly checksum: string;
@@ -67,7 +41,7 @@ export class SequencePacket {
     if (data) parts.push(...data);
 
     const checksum = crc32(Buffer.from(parts)).reverse();
-    return new SequencePacket(checksum.toString(), type, sequence, data);
+    return new Packet(checksum.toString(), type, sequence, data);
   }
 
   toBuffer() {
@@ -76,6 +50,40 @@ export class SequencePacket {
     let prefixedData = Buffer.from([0xff, this.type, this.sequence]);
 
     if (this.data) prefixedData = Buffer.concat([prefixedData, this.data]);
+
+    const checksum = crc32(prefixedData).reverse();
+
+    return Buffer.concat([header, checksum, prefixedData]);
+  }
+}
+
+/**
+ * A login packet is a special {@link Packet} that does not have a sequence number.
+ * It is only used as a response from the server.
+ * The data is a single byte, 0 for failure, 1 for success.
+ */
+export class LoginPacket {
+  readonly prefix: string;
+  readonly checksum: string;
+  readonly type: PacketTypes;
+  readonly data: Buffer;
+
+  constructor(checksum: string, type: PacketTypes, data: Buffer) {
+    this.prefix = 'BE';
+    this.checksum = checksum;
+    this.type = type;
+    this.data = data;
+  }
+
+  static create(type: PacketTypes, data: Buffer) {
+    const checksum = crc32(Buffer.from([0xff, type, ...data])).reverse();
+    return new LoginPacket(checksum.toString(), type, data);
+  }
+
+  toBuffer() {
+    const header = Buffer.from('BE');
+
+    let prefixedData = Buffer.from([0xff, this.type, ...this.data]);
 
     const checksum = crc32(prefixedData).reverse();
 
@@ -96,7 +104,7 @@ export class PacketError {
 }
 
 /**
- * Creates a {@link Packet} from a buffer.
+ * Creates a {@link LoginPacket} from a buffer.
  * @param msg The buffer to create a packet from.
  */
 export const createPacket = (msg: Buffer) => {
@@ -115,10 +123,10 @@ export const createPacket = (msg: Buffer) => {
   const type = msg[7];
   const data = msg.subarray(8);
 
-  if (type === PacketTypes.Login) return new Packet(checksum, type, data);
+  if (type === PacketTypes.Login) return new LoginPacket(checksum, type, data);
 
   const sequence = data[0];
   const commandData = data.subarray(1);
 
-  return new SequencePacket(checksum, type, sequence, commandData);
+  return new Packet(checksum, type, sequence, commandData);
 };

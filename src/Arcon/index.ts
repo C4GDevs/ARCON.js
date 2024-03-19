@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { createSocket, Socket } from 'dgram';
-import { SequencePacket, createPacket, Packet, PacketError, PacketTypes } from './packet';
+import { Packet, createPacket, LoginPacket, PacketError, PacketTypes } from './packet';
 
 interface ClientOptions {
   /** Host of the RCON server. */
@@ -53,7 +53,7 @@ class Arcon extends EventEmitter {
 
     this._socket.on('message', (buf) => this._handleMessage(buf));
 
-    const loginPacket = Packet.create(PacketTypes.Login, Buffer.from(this._password));
+    const loginPacket = LoginPacket.create(PacketTypes.Login, Buffer.from(this._password));
 
     // Server is unreachable if it does not respond within 5 seconds.
     this._loginTimeout = setTimeout(() => {
@@ -84,7 +84,7 @@ class Arcon extends EventEmitter {
    * Determines whether the login was successful.
    * @param packet The parsed packet from the server.
    */
-  private _handleLogin(packet: Packet) {
+  private _handleLogin(packet: LoginPacket) {
     clearTimeout(this._loginTimeout);
 
     // Password in incorrect.
@@ -108,13 +108,13 @@ class Arcon extends EventEmitter {
     if (packet instanceof PacketError) return this.emit('error', packet);
 
     // If the packet is a login packet, the server does not want a response.
-    if (packet instanceof Packet) return this._handleLogin(packet);
+    if (packet instanceof LoginPacket) return this._handleLogin(packet);
 
     this._lastPacketReceivedAt = new Date();
 
     // All server messages require a response.
     if (packet.type === PacketTypes.Message) {
-      const response = SequencePacket.create(PacketTypes.Message, null, packet.sequence);
+      const response = Packet.create(PacketTypes.Message, null, packet.sequence);
 
       this._socket.send(response.toBuffer());
 
@@ -145,7 +145,7 @@ class Arcon extends EventEmitter {
 
     // Send a heartbeat packet every 2.5 seconds.
     if (delta > 2_500) {
-      const heartbeat = SequencePacket.create(PacketTypes.Command, null, this._sequenceNumber++ % 256);
+      const heartbeat = Packet.create(PacketTypes.Command, null, this._sequenceNumber++ % 256);
       this._socket.send(heartbeat.toBuffer());
     }
   }
