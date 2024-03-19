@@ -9,6 +9,12 @@ interface ClientOptions {
   port: number;
   /** The password of the RCON server. */
   password: string;
+  /**
+   * Whether to automatically reconnect to the server if disconnected.
+   * Does not reconnect if the `password` is incorrect.
+   * @default true
+   */
+  autoReconnect?: boolean;
 }
 
 /**
@@ -28,20 +34,28 @@ class Arcon extends EventEmitter {
   private _host: string;
   private _port: number;
   private _password: string;
+  private _autoReconnect: boolean;
 
+  /**
+   * Heartbeat loop handler, only runs while logged in.
+   */
+  private _heartbeatInterval: NodeJS.Timeout;
+
+  /**
+   * Login packet timeout handler.
+   */
   private _loginTimeout: NodeJS.Timeout;
 
   /**
    * @param options - The options for the ARCON instance.
    */
-  constructor({ host, port, password }: ClientOptions) {
+  constructor({ host, port, password, autoReconnect }: ClientOptions) {
     super();
 
     this._host = host;
     this._port = port;
     this._password = password;
-
-    setInterval(() => this._heartbeat(), 1000);
+    this._autoReconnect = autoReconnect ?? true;
   }
 
   /**
@@ -53,31 +67,41 @@ class Arcon extends EventEmitter {
 
     this._socket.on('message', (buf) => this._handleMessage(buf));
 
-    const loginPacket = LoginPacket.create(PacketTypes.Login, Buffer.from(this._password));
+    this._socket.once('connect', () => this._sendLogin());
 
-    // Server is unreachable if it does not respond within 5 seconds.
-    this._loginTimeout = setTimeout(() => {
-      this.emit('error', new Error('Login timeout'));
-      this.close();
-    }, 5000);
-
-    this._socket.connect(this._port, this._host, () => {
-      this._socket.send(loginPacket.toBuffer());
+    this._socket.on('error', (error) => {
+      this.emit('error', error);
+      this.close(false);
     });
+
+    this._socket.connect(this._port, this._host);
+  }
+
+  /**
+   * Whether the client is connected to the RCON server.
+   */
+  public get connected() {
+    return this._connected;
   }
 
   /**
    * Closes the socket to the server.
+   * @param abortReconnect Whether to abort the reconnection process.
    * @param emit Whether to emit the `disconnected` event.
    */
-  close(emit: boolean = true) {
+  close(abortReconnect: boolean, emit: boolean = true) {
     this._socket.close();
     this._connected = false;
+    clearInterval(this._heartbeatInterval);
 
     // Reset the sequence number incase we reconnect.
     this._sequenceNumber = 0;
 
     if (emit) this.emit('disconnected');
+
+    if (abortReconnect || !this._autoReconnect) return;
+
+    setTimeout(() => this.connect(), 5000);
   }
 
   /**
@@ -90,11 +114,18 @@ class Arcon extends EventEmitter {
     // Password in incorrect.
     if (packet.data.toString() === '0') {
       this.emit('error', new Error('Login failed'));
-      this.close(false);
+      this.close(true);
       return;
     }
 
     this._connected = true;
+
+    // Update the last packet received time to stop disconnecting from
+    // occurring immediately after login.
+    this._lastPacketReceivedAt = new Date();
+
+    setInterval(() => this._heartbeat(), 1000);
+
     this.emit('connected');
   }
 
@@ -139,7 +170,7 @@ class Arcon extends EventEmitter {
     // If we haven't received a packet in 10 seconds, the connection is dead.
     if (delta > 10_000) {
       this.emit('error', new Error('Connection timeout'));
-      this.close();
+      this.close(false);
       return;
     }
 
@@ -148,6 +179,21 @@ class Arcon extends EventEmitter {
       const heartbeat = Packet.create(PacketTypes.Command, null, this._sequenceNumber++ % 256);
       this._socket.send(heartbeat.toBuffer());
     }
+  }
+
+  /**
+   * Sends the login packet to the server.
+   */
+  private _sendLogin() {
+    const loginPacket = LoginPacket.create(PacketTypes.Login, Buffer.from(this._password));
+
+    // Server is unreachable if it does not respond within 5 seconds.
+    this._loginTimeout = setTimeout(() => {
+      this.emit('error', new Error('Login timeout'));
+      this.close(false);
+    }, 5000);
+
+    this._socket.send(loginPacket.toBuffer());
   }
 }
 
