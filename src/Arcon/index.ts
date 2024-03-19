@@ -56,12 +56,26 @@ class Arcon extends EventEmitter {
     // Server is unreachable if it does not respond within 5 seconds.
     this._loginTimeout = setTimeout(() => {
       this.emit('error', new Error('Login timeout'));
-      this._socket.close();
+      this.close();
     }, 5000);
 
     this._socket.connect(this._port, this._host, () => {
       this._socket.send(loginPacket.toBuffer());
     });
+  }
+
+  /**
+   * Closes the socket to the server.
+   * @param emit Whether to emit the `disconnected` event.
+   */
+  close(emit: boolean = true) {
+    this._socket.close();
+    this._connected = false;
+
+    // Reset the sequence number incase we reconnect.
+    this._sequenceNumber = 0;
+
+    if (emit) this.emit('disconnected');
   }
 
   /**
@@ -74,7 +88,7 @@ class Arcon extends EventEmitter {
     // Password in incorrect.
     if (packet.data.toString() === '0') {
       this.emit('error', new Error('Login failed'));
-      this._socket.close();
+      this.close(false);
       return;
     }
 
@@ -101,7 +115,13 @@ class Arcon extends EventEmitter {
       const response = SequencePacket.create(PacketTypes.Message, null, packet.sequence);
 
       this._socket.send(response.toBuffer());
+
+      // TODO: Parse the message based on data.
+      this.emit('message', packet);
       return;
+    }
+  }
+      this._socket.send(heartbeat.toBuffer());
     }
   }
 }
