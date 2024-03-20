@@ -249,14 +249,12 @@ class Arcon extends EventEmitter {
 
     this._socket.send(packet.toBuffer());
 
-    // If the server does not respond within 5 seconds, remove the command from the list and try again.
+    // If the server does not respond within 5 seconds, abandon the command and cleanup.
     setTimeout(() => {
       if (!this._waitingCommands.has(packet.sequence)) return;
 
       this._commandPacketParts.delete(packet.sequence);
       this._waitingCommands.delete(packet.sequence);
-
-      this._sendCommand(command);
     }, 5_000);
   }
 }
