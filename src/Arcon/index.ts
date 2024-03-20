@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import { createSocket, Socket } from 'dgram';
-import { Packet, createPacket, LoginPacket, PacketError, PacketTypes } from './packet';
+import { Packet, createPacket, LoginPacket, PacketError, PacketTypes, CommandPacketPart } from './packet';
 
 interface ClientOptions {
   /** Host of the RCON server. */
@@ -30,6 +30,12 @@ class Arcon extends EventEmitter {
   private _sequenceNumber: number = 0;
 
   private _socket: Socket;
+
+  /** A list of command packet fragments. */
+  private _commandPacketParts: Map<number, CommandPacketPart[]> = new Map();
+
+  /** A list of commands that are waiting for a response. */
+  private _waitingCommands: Set<number> = new Set();
 
   private _host: string;
   private _port: number;
@@ -126,6 +132,9 @@ class Arcon extends EventEmitter {
 
     setInterval(() => this._heartbeat(), 1000);
 
+    // Get the list of players.
+    this._sendCommand('players');
+
     this.emit('connected');
   }
 
@@ -143,15 +152,47 @@ class Arcon extends EventEmitter {
 
     this._lastPacketReceivedAt = new Date();
 
-    // All server messages require a response.
-    if (packet.type === PacketTypes.Message) {
-      const response = Packet.create(PacketTypes.Message, null, packet.sequence);
+    if (packet instanceof Packet) {
+      // All server messages require a response.
+      if (packet.type === PacketTypes.Message) {
+        const response = Packet.create(PacketTypes.Message, null, packet.sequence);
 
-      this._socket.send(response.toBuffer());
+        this._socket.send(response.toBuffer());
 
-      // TODO: Parse the message based on data.
-      this.emit('message', packet);
+        // TODO: Parse the message based on data.
+        if (packet.data?.length) this.emit('message', packet.data.toString());
+        return;
+      }
+
+      // TODO: Parse the command based on data.
+      if (packet.data?.length) this.emit('message', packet.data.toString());
       return;
+    }
+
+    // Don't handle the packet if it's from a command we're not waiting for.
+    if (!this._waitingCommands.has(packet.sequence)) return;
+
+    const packetParts = this._commandPacketParts.get(packet.sequence);
+
+    if (!packetParts) {
+      this._commandPacketParts.set(packet.sequence, [packet]);
+      return;
+    }
+
+    packetParts.push(packet);
+
+    if (packetParts.length === packetParts[0].totalPackets) {
+      // Remove the command from the list of waiting commands.
+      this._commandPacketParts.delete(packet.sequence);
+      this._waitingCommands.delete(packet.sequence);
+
+      // UDP packets can arrive out of order, so we need to sort them.
+      const sortedParts = packetParts.sort((a, b) => a.packetIndex - b.packetIndex);
+
+      const data = Buffer.concat(sortedParts.map((part) => part.data));
+
+      // TODO: Parse the command based on data.
+      this.emit('message', data.toString());
     }
   }
 
@@ -194,6 +235,28 @@ class Arcon extends EventEmitter {
     }, 5000);
 
     this._socket.send(loginPacket.toBuffer());
+  }
+
+  /**
+   * Sends a command to the server.
+   * @param command The command to send.
+   */
+  private _sendCommand(command: string) {
+    const packet = Packet.create(PacketTypes.Command, Buffer.from(command), this._sequenceNumber++ % 256);
+
+    this._waitingCommands.add(packet.sequence);
+
+    this._socket.send(packet.toBuffer());
+
+    // If the server does not respond within 5 seconds, remove the command from the list and try again.
+    setTimeout(() => {
+      if (!this._waitingCommands.has(packet.sequence)) return;
+
+      this._commandPacketParts.delete(packet.sequence);
+      this._waitingCommands.delete(packet.sequence);
+
+      this._sendCommand(command);
+    }, 5_000);
   }
 }
 

@@ -15,6 +15,11 @@ export enum PacketTypes {
  * TYPE is a single byte of PacketTypes
  * SEQUENCE is a single byte
  * DATA is the rest of the packet
+ *
+ * For `Command` packets, DATA can contain a header if the response
+ * is too large to fit in a single packet. The header is 3 bytes:
+ * 0x00|[TOTAL PACKETS]|[THIS PACKET INDEX]
+ * packet index is 0-based.
  */
 
 /**
@@ -65,13 +70,12 @@ export class Packet {
 export class LoginPacket {
   readonly prefix: string;
   readonly checksum: string;
-  readonly type: PacketTypes;
+  readonly type = 0;
   readonly data: Buffer;
 
   constructor(checksum: string, type: PacketTypes, data: Buffer) {
     this.prefix = 'BE';
     this.checksum = checksum;
-    this.type = type;
     this.data = data;
   }
 
@@ -88,6 +92,40 @@ export class LoginPacket {
     const checksum = crc32(prefixedData).reverse();
 
     return Buffer.concat([header, checksum, prefixedData]);
+  }
+}
+
+export class CommandPacketPart {
+  readonly prefix: string;
+  readonly checksum: string;
+  readonly type = 1;
+  readonly sequence: number;
+  readonly totalPackets: number;
+  readonly packetIndex: number;
+  readonly data: Buffer;
+
+  constructor(
+    checksum: string,
+    sequence: number,
+    totalPackets: number,
+    packetIndex: number,
+    data: Buffer
+  ) {
+    this.prefix = 'BE';
+    this.checksum = checksum;
+    this.sequence = sequence;
+    this.totalPackets = totalPackets;
+    this.packetIndex = packetIndex;
+    this.data = data;
+  }
+
+  static create(type: PacketTypes, data: Buffer, sequence: number, totalPackets: number, packetIndex: number) {
+    const parts = [0xff, type, sequence, totalPackets, packetIndex];
+
+    if (data) parts.push(...data);
+
+    const checksum = crc32(Buffer.from(parts)).reverse();
+    return new CommandPacketPart(checksum.toString(), sequence, totalPackets, packetIndex, data);
   }
 }
 
@@ -126,7 +164,15 @@ export const createPacket = (msg: Buffer) => {
   if (type === PacketTypes.Login) return new LoginPacket(checksum, type, data);
 
   const sequence = data[0];
-  const commandData = data.subarray(1);
+  const packetData = data.subarray(1);
 
-  return new Packet(checksum, type, sequence, commandData);
+  const dataHasHeader = packetData.length && packetData[0] === 0x00;
+
+  if (type === PacketTypes.Message || !dataHasHeader) return new Packet(checksum, type, sequence, packetData);
+
+  const totalPackets = packetData[1];
+  const packetIndex = packetData[2];
+  const commandData = packetData.subarray(3);
+
+  return new CommandPacketPart(checksum, sequence, totalPackets, packetIndex, commandData);
 };
