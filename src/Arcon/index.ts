@@ -242,6 +242,7 @@ class Arcon extends EventEmitter {
    * @param command The command to send.
    */
   private _sendCommand(command: string) {
+    if (!this._connected) return;
     const packet = Packet.create(PacketTypes.Command, Buffer.from(command), this._sequenceNumber++ % 256);
 
     this._waitingCommands.add(packet.sequence);
