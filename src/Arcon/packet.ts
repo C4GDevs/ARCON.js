@@ -41,9 +41,9 @@ export class Packet {
   }
 
   static create(type: PacketTypes, data: Buffer | null, sequence: number) {
-    const parts = [0xff, type, sequence];
+    const parts = Buffer.from([0xff, type, sequence]);
 
-    if (data) parts.push(...data);
+    if (data) Buffer.concat([parts, data]);
 
     const checksum = crc32(Buffer.from(parts)).reverse();
     return new Packet(checksum.toString(), type, sequence, data);
