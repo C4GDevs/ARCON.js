@@ -130,7 +130,7 @@ class Arcon extends EventEmitter {
     // occurring immediately after login.
     this._lastPacketReceivedAt = new Date();
 
-    setInterval(() => this._heartbeat(), 1000);
+    this._heartbeatInterval = setInterval(() => this._heartbeat(), 1000);
 
     // Get the list of players.
     this._sendCommand('players');
