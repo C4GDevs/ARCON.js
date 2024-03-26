@@ -3,3 +3,4 @@ node_modules
 index.js
 index.d.ts
 tests/live.ts
+/.vscode

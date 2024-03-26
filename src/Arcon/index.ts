@@ -43,6 +43,9 @@ class Arcon extends EventEmitter {
   /** The last time a command was sent to the server. */
   private _lastCommandSentAt: Date = new Date();
 
+  /** The last sequence number used for a command. */
+  private _lastCommandSequence: number;
+
   /** The last time a packet was received from the server. */
   private _lastPacketReceivedAt: Date;
 
@@ -244,7 +247,7 @@ class Arcon extends EventEmitter {
      * We need to reassemble the packet before handling it.
      */
 
-    if (packet.sequence !== this._commandQueue[0].sequence) return;
+    if (packet.sequence !== this._commandQueue[0]?.sequence) return;
 
     const packetParts = this._commandPacketParts.get(packet.sequence);
 
@@ -369,9 +372,8 @@ class Arcon extends EventEmitter {
       this.emit('playerDisconnected', player, `${reason}`);
     }
 
+    // TODO: Handle BattlEye logs
     if (/^[a-zA-Z]+ Log/.test(data)) return;
-
-    console.log(data);
   }
 
   /**
@@ -416,6 +418,9 @@ class Arcon extends EventEmitter {
 
     if (packet && delta > 1000) {
       this._lastCommandSentAt = new Date();
+
+      // Prevent overflow of packet parts.
+      this._commandPacketParts.delete(packet.sequence);
 
       this._socket.send(packet.toBuffer());
     }
