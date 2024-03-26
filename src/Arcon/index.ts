@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { createSocket, Socket } from 'dgram';
 import { Packet, createPacket, LoginPacket, PacketError, PacketTypes, CommandPacketPart } from './packet';
+import { Player } from './player';
 
 interface ClientOptions {
   /** Host of the RCON server. */
@@ -22,35 +23,51 @@ interface ClientOptions {
  * @extends EventEmitter
  */
 class Arcon extends EventEmitter {
-  /** Whether the client has logged into the RCON server */
-  private _connected: boolean = false;
-  /** The last time a packet was received from the server. */
-  private _lastPacketReceivedAt: Date;
-  /** The sequence number of the next packet to send. Ranges from 0 to 255. */
-  private _sequenceNumber: number = 0;
-
-  private _socket: Socket;
-
   /** A list of command packet fragments. */
   private _commandPacketParts: Map<number, CommandPacketPart[]> = new Map();
 
   /** A list of commands that are waiting for a response. */
-  private _waitingCommands: Set<number> = new Set();
+  private _commandQueue: Packet[] = [];
+
+  /** The interval for sending commands from the queue. */
+  private _commandSendInterval: NodeJS.Timeout;
+
+  /** Whether the client has logged into the RCON server */
+  private _connected: boolean = false;
+
+  private _connectingPlayers: Map<number, { name: string; ip: string }> = new Map();
+
+  /** Heartbeat loop handler, only runs while logged in. */
+  private _heartbeatInterval: NodeJS.Timeout;
+
+  /** The last time a command was sent to the server. */
+  private _lastCommandSentAt: Date = new Date();
+
+  /** The last time a packet was received from the server. */
+  private _lastPacketReceivedAt: Date;
+
+  /** Login packet timeout handler. */
+  private _loginTimeout: NodeJS.Timeout;
+
+  /** A list of players currently connected to the server. */
+  private _players: Player[] = [];
+
+  /**
+   * Whether we are ignoring messages from the server.
+   * True until we receive the list of players from the server.
+   */
+  private _ignoringMessages: boolean = true;
+
+  /** The sequence number of the next packet to send. Ranges from 0 to 255. */
+  private _sequenceNumber: number = 0;
+
+  /** The socket used to communicate with the server. */
+  private _socket: Socket;
 
   private _host: string;
   private _port: number;
   private _password: string;
   private _autoReconnect: boolean;
-
-  /**
-   * Heartbeat loop handler, only runs while logged in.
-   */
-  private _heartbeatInterval: NodeJS.Timeout;
-
-  /**
-   * Login packet timeout handler.
-   */
-  private _loginTimeout: NodeJS.Timeout;
 
   /**
    * @param options - The options for the ARCON instance.
@@ -71,7 +88,7 @@ class Arcon extends EventEmitter {
     if (this._connected) return;
     this._socket = createSocket('udp4');
 
-    this._socket.on('message', (buf) => this._handleMessage(buf));
+    this._socket.on('message', (buf) => this._parseMessage(buf));
 
     this._socket.once('connect', () => this._sendLogin());
 
@@ -98,16 +115,79 @@ class Arcon extends EventEmitter {
   close(abortReconnect: boolean, emit: boolean = true) {
     this._socket.close();
     this._connected = false;
-    clearInterval(this._heartbeatInterval);
 
-    // Reset the sequence number incase we reconnect.
+    clearInterval(this._heartbeatInterval);
+    clearInterval(this._commandSendInterval);
+
     this._sequenceNumber = 0;
+
+    this._commandQueue = [];
+    this._commandPacketParts.clear();
+
+    this._ignoringMessages = true;
+
+    this._players = [];
 
     if (emit) this.emit('disconnected');
 
     if (abortReconnect || !this._autoReconnect) return;
 
     setTimeout(() => this.connect(), 5000);
+  }
+
+  /**
+   * Parses command data and handles it accordingly.
+   * @param packet The parsed packet from the server.
+   */
+  private _handleCommand(packet: Packet) {
+    if (!packet.data) return;
+
+    const data = packet.data.toString();
+
+    // response from `players` command
+    if (data.startsWith('Players on server:')) {
+      /**
+       * Matches the following pattern:
+       * [id] [IP Address]:[Port] [Ping] [GUID] [Name] (Lobby)
+       */
+      const players = data.matchAll(
+        /^(\d+)\s+([\d\.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm
+      );
+
+      for (const player of players) {
+        const [_, idStr, ip, pingStr, guid, verifiedStr, name, lobbyStr] = player;
+
+        const id = parseInt(idStr);
+        const ping = parseInt(pingStr);
+        const verified = verifiedStr === 'OK';
+        const lobby = lobbyStr === 'Lobby';
+
+        const existingPlayer = this._players.find((p) => p.id === id);
+
+        // Update the player if they already exist.
+        if (existingPlayer) {
+          const _changes = [
+            existingPlayer.ping !== ping,
+            existingPlayer.verified !== verified,
+            existingPlayer.lobby !== lobby
+          ];
+
+          existingPlayer.lobby = lobby;
+          existingPlayer.ping = ping;
+          existingPlayer.verified = verified;
+
+          if (_changes.some((c) => c)) this.emit('playerUpdated', existingPlayer, _changes);
+          continue;
+        }
+
+        // Only add to players list if we haven't fetched them yet.
+        if (this._ignoringMessages) this._players.push(new Player(guid, id, ip, name, ping, lobby, verified));
+      }
+
+      this.emit('players', this._players);
+      if (this._ignoringMessages) this._ignoringMessages = false;
+      return;
+    }
   }
 
   /**
@@ -131,9 +211,10 @@ class Arcon extends EventEmitter {
     this._lastPacketReceivedAt = new Date();
 
     this._heartbeatInterval = setInterval(() => this._heartbeat(), 1000);
+    this._commandSendInterval = setInterval(() => this._sendCommand(), 100);
 
-    // Get the list of players.
-    this._sendCommand('players');
+    // Get the list of players. We won't handle messages before receiving this.
+    this._queueCommand('players');
 
     this.emit('connected');
   }
@@ -142,7 +223,7 @@ class Arcon extends EventEmitter {
    * Handles raw data received from the server.
    * @param buf Raw packet data.
    */
-  private _handleMessage(buf: Buffer) {
+  private _parseMessage(buf: Buffer) {
     const packet = createPacket(buf);
 
     if (packet instanceof PacketError) return this.emit('error', packet);
@@ -153,47 +234,144 @@ class Arcon extends EventEmitter {
     this._lastPacketReceivedAt = new Date();
 
     if (packet instanceof Packet) {
-      // All server messages require a response.
-      if (packet.type === PacketTypes.Message) {
-        const response = Packet.create(PacketTypes.Message, null, packet.sequence);
+      if (packet.type === PacketTypes.Message) return this._handleServerMessage(packet);
 
-        this._socket.send(response.toBuffer());
-
-        // TODO: Parse the message based on data.
-        if (packet.data?.length) this.emit('message', packet.data.toString());
-        return;
-      }
-
-      // TODO: Parse the command based on data.
-      if (packet.data?.length) this.emit('message', packet.data.toString());
-      return;
+      return this._handleCommand(packet);
     }
 
-    // Don't handle the packet if it's from a command we're not waiting for.
-    if (!this._waitingCommands.has(packet.sequence)) return;
+    /**
+     * Packet is fragmented due to UDP packet size limits.
+     * We need to reassemble the packet before handling it.
+     */
+
+    if (packet.sequence !== this._commandQueue[0].sequence) return;
 
     const packetParts = this._commandPacketParts.get(packet.sequence);
 
-    if (!packetParts) {
-      this._commandPacketParts.set(packet.sequence, [packet]);
-      return;
-    }
+    // If the packet is the first fragment, create a new list.
+    if (!packetParts) return this._commandPacketParts.set(packet.sequence, [packet]);
 
+    // Add the packet to the list of fragments.
     packetParts.push(packet);
 
+    // If we have all the fragments, reassemble the packet.
     if (packetParts.length === packetParts[0].totalPackets) {
       // Remove the command from the list of waiting commands.
       this._commandPacketParts.delete(packet.sequence);
-      this._waitingCommands.delete(packet.sequence);
+      this._commandQueue.shift();
 
       // UDP packets can arrive out of order, so we need to sort them.
       const sortedParts = packetParts.sort((a, b) => a.packetIndex - b.packetIndex);
 
       const data = Buffer.concat(sortedParts.map((part) => part.data));
 
-      // TODO: Parse the command based on data.
-      this.emit('message', data.toString());
+      const fullPacket = Packet.create(PacketTypes.Command, data, packet.sequence);
+
+      this._handleCommand(fullPacket);
     }
+  }
+
+  /**
+   * Handles a `Message` packet from the server.
+   * @param packet The parsed packet to handle.
+   */
+  private _handleServerMessage(packet: Packet) {
+    // All server messages require a response.
+    const response = Packet.create(PacketTypes.Message, null, packet.sequence);
+
+    this._socket.send(response.toBuffer());
+
+    if (this._ignoringMessages || !packet.data) return;
+
+    const data = packet.data.toString();
+
+    // Player connected
+    if (/^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/.test(data)) {
+      const [_, idStr, name, ip] = data.match(/^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/) ?? [];
+
+      if (!idStr || !name || !ip) return;
+
+      const id = parseInt(idStr);
+
+      this._connectingPlayers.set(id, { name, ip });
+      return;
+    }
+
+    // Player guid calculated
+    if (/^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/.test(data)) {
+      const [_, idStr, name, guid] = data.match(/^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/) ?? [];
+
+      if (!idStr || !name || !guid) return;
+
+      const id = parseInt(idStr);
+
+      const playerInfo = this._connectingPlayers.get(id);
+
+      if (!playerInfo) return;
+
+      const player = new Player(guid, id, playerInfo.ip, playerInfo.name, -1, true, false);
+
+      this._players.push(player);
+      return;
+    }
+
+    // Player guid verified
+    if (/^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/.test(data)) {
+      const [_, idStr] = data.match(/^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/) ?? [];
+
+      if (!idStr) return;
+
+      const id = parseInt(idStr);
+
+      const player = this._players.find((p) => p.id === id);
+
+      if (!player) return;
+
+      player.verified = true;
+
+      this.emit('playerConnected', player);
+      return;
+    }
+
+    // Player disconnected
+    if (/^Player #(\d+) (.+) disconnected$/.test(data)) {
+      const [_, idStr] = data.match(/^Player #(\d+) .+ disconnected$/) ?? [];
+
+      if (!idStr) return;
+
+      const id = parseInt(idStr);
+
+      const player = this._players.find((p) => p.id === id);
+
+      if (!player) return;
+
+      this._players = this._players.filter((p) => p.id !== id);
+
+      this.emit('playerDisconnected', player, 'disconnected');
+      return;
+    }
+
+    // Player kicked
+    if (/^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/) {
+      const [_, idStr, reason] =
+        data.match(/^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/) ?? [];
+
+      if (!idStr || !reason) return;
+
+      const id = parseInt(idStr);
+
+      const player = this._players.find((p) => p.id === id);
+
+      if (!player) return;
+
+      this._players = this._players.filter((p) => p.id !== id);
+
+      this.emit('playerDisconnected', player, `${reason}`);
+    }
+
+    if (/^[a-zA-Z]+ Log/.test(data)) return;
+
+    console.log(data);
   }
 
   /**
@@ -217,8 +395,29 @@ class Arcon extends EventEmitter {
 
     // Send a heartbeat packet every 2.5 seconds.
     if (delta > 2_500) {
-      const heartbeat = Packet.create(PacketTypes.Command, null, this._sequenceNumber++ % 256);
-      this._socket.send(heartbeat.toBuffer());
+      this._queueCommand('players');
+    }
+  }
+
+  /**
+   * Sends a command to the server from the queue.
+   */
+  private _sendCommand() {
+    if (!this._connected) return;
+
+    if (this._commandQueue.length === 0) return;
+
+    // TODO: There should be a better way to handle this.
+
+    const packet = this._commandQueue[0];
+
+    const now = new Date();
+    const delta = now.getTime() - this._lastCommandSentAt.getTime();
+
+    if (packet && delta > 1000) {
+      this._lastCommandSentAt = new Date();
+
+      this._socket.send(packet.toBuffer());
     }
   }
 
@@ -241,21 +440,11 @@ class Arcon extends EventEmitter {
    * Sends a command to the server.
    * @param command The command to send.
    */
-  private _sendCommand(command: string) {
+  private _queueCommand(command: string) {
     if (!this._connected) return;
     const packet = Packet.create(PacketTypes.Command, Buffer.from(command), this._sequenceNumber++ % 256);
 
-    this._waitingCommands.add(packet.sequence);
-
-    this._socket.send(packet.toBuffer());
-
-    // If the server does not respond within 5 seconds, abandon the command and cleanup.
-    setTimeout(() => {
-      if (!this._waitingCommands.has(packet.sequence)) return;
-
-      this._commandPacketParts.delete(packet.sequence);
-      this._waitingCommands.delete(packet.sequence);
-    }, 5_000);
+    this._commandQueue.push(packet);
   }
 }
 
