@@ -188,7 +188,7 @@ export class Arcon extends BaseClient {
 
       this._players = this._players.filter((p) => p.id !== id);
 
-      this.emit('playerDisconnected', player, `${reason}`);
+      this.emit('playerDisconnected', player, reason);
     }
 
     // TODO: Handle BattlEye logs
