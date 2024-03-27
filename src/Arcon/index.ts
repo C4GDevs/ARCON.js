@@ -234,7 +234,10 @@ export class Arcon extends BaseClient {
         if (!this._hasReceivedPlayers) this._players.push(new Player(guid, id, ip, name, ping, lobby, verified));
       }
 
-      if (!this._hasReceivedPlayers) this._hasReceivedPlayers = true;
+      if (!this._hasReceivedPlayers) {
+        this.emit('players', this._players);
+        this._hasReceivedPlayers = true;
+      }
     }
   }
 
