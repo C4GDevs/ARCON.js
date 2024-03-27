@@ -104,13 +104,7 @@ export class CommandPacketPart {
   readonly packetIndex: number;
   readonly data: Buffer;
 
-  constructor(
-    checksum: string,
-    sequence: number,
-    totalPackets: number,
-    packetIndex: number,
-    data: Buffer
-  ) {
+  constructor(checksum: string, sequence: number, totalPackets: number, packetIndex: number, data: Buffer) {
     this.prefix = 'BE';
     this.checksum = checksum;
     this.sequence = sequence;
