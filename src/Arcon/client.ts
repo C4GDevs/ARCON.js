@@ -28,6 +28,7 @@ export class BaseClient extends EventEmitter {
   protected _seqeuence = 0;
 
   private _lastPacketReceivedAt: Date;
+  private _sequenceModifiedAt: Date;
 
   // Timeouts
   private _heartbeatInverval: NodeJS.Timeout;
@@ -96,6 +97,15 @@ export class BaseClient extends EventEmitter {
     }
   }
 
+  protected _getSequence() {
+    const sequence = this._seqeuence;
+    this._seqeuence = (this._seqeuence + 1) % 256;
+
+    this._sequenceModifiedAt = new Date();
+
+    return sequence;
+  }
+
   private _handleLogin(packet: LoginPacket) {
     clearTimeout(this._loginTimeout);
 
@@ -107,7 +117,7 @@ export class BaseClient extends EventEmitter {
 
     this._connected = true;
 
-    this._heartbeatInverval = setInterval(() => this._sendHeartbeat(), 22_500);
+    this._heartbeatInverval = setInterval(() => this._sendHeartbeat(), 1000);
     this._connectionCheckInterval = setInterval(() => this._checkConnection(), 1000);
 
     this.emit('connected');
@@ -140,8 +150,11 @@ export class BaseClient extends EventEmitter {
    * every 45 seconds, if no other commands are sent.
    */
   private _sendHeartbeat() {
-    const sequence = this._seqeuence;
-    this._seqeuence = (this._seqeuence + 1) % 256;
+    if (!this._connected) return;
+
+    if (this._sequenceModifiedAt && this._sequenceModifiedAt.getTime() + 22_500 > Date.now()) return;
+
+    const sequence = this._getSequence();
 
     const heartbeatPacket = Packet.create(PacketTypes.Command, null, sequence);
 

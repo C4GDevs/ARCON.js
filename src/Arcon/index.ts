@@ -67,8 +67,7 @@ export class Arcon extends BaseClient {
    * @param command Formatted command data.
    */
   public sendCommand(command: string) {
-    const sequence = this._seqeuence;
-    this._seqeuence = (this._seqeuence + 1) % 256;
+    const sequence = this._getSequence();
 
     const packet = Packet.create(PacketTypes.Command, Buffer.from(command), sequence);
 
@@ -266,7 +265,7 @@ export class Arcon extends BaseClient {
 
     // Resend command if the server hasn't replied.
     if (
-      this._commandSendTime.getTime() + 2000 < Date.now() &&
+      this._commandSendTime.getTime() + 3000 < Date.now() &&
       this._lastCommandPartReceivedAt.getTime() + 1000 < Date.now()
     ) {
       this._commandSendAttempts++;
