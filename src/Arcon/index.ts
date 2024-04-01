@@ -7,6 +7,16 @@ export interface ArconOptions extends ClientOptions {
   playerUpdateInterval?: number;
 }
 
+const regexes = {
+  playerConnected: /^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/,
+  playerGuidCalculated: /^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/,
+  playerGuidVerified: /^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/,
+  playerDisconnected: /^Player #(\d+) (.+) disconnected$/,
+  playerKicked: /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/,
+  beLog: /^([a-zA-Z]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/,
+  playerList: /^(\d+)\s+([\d\.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm
+};
+
 export class Arcon extends BaseClient {
   private _connectingPlayers = new Map<number, { name: string; ip: string }>();
 
@@ -96,6 +106,20 @@ export class Arcon extends BaseClient {
     this._commandQueue.push(packet);
   }
 
+  private _beLog(data: string) {
+    const [_, type, idStr, guid, filter, log] = data.match(regexes.beLog) ?? [];
+
+    if (!type || !idStr || !guid || !filter) return;
+
+    const id = parseInt(idStr);
+
+    const player = this._players.find((p) => p.id === id);
+
+    if (!player) return;
+
+    this.emit('beLog', { type, player, filter, log });
+  }
+
   override _handleCommandPacket(packet: Packet | CommandPacketPart) {
     let commandPacket: Packet | null = null;
 
@@ -130,26 +154,26 @@ export class Arcon extends BaseClient {
     const data = packet.data.toString();
 
     // Player connected
-    if (/^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/.test(data)) return this._playerConnected(data);
+    if (regexes.playerConnected.test(data)) return this._playerConnected(data);
 
     // Player guid calculated
-    if (/^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/.test(data)) return this._playerGuidCalculated(data);
+    if (regexes.playerGuidCalculated.test(data)) return this._playerGuidCalculated(data);
 
     // Player guid verified
-    if (/^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/.test(data)) return this._playerGuidVerified(data);
+    if (regexes.playerGuidVerified.test(data)) return this._playerGuidVerified(data);
 
     // Player disconnected
-    if (/^Player #(\d+) (.+) disconnected$/.test(data)) return this._playerDisconnected(data);
+    if (regexes.playerDisconnected.test(data)) return this._playerDisconnected(data);
 
     // Player kicked
-    if (/^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/) return this._playerKicked(data);
+    if (regexes.playerKicked.test(data)) return this._playerKicked(data);
 
-    // TODO: Handle BattlEye logs
-    if (/^[a-zA-Z]+ Log/.test(data)) return;
+    // BE log
+    if (regexes.beLog.test(data)) return this._beLog(data);
   }
 
   private _playerConnected(data: string) {
-    const [_, idStr, name, ip] = data.match(/^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/) ?? [];
+    const [_, idStr, name, ip] = data.match(regexes.playerConnected) ?? [];
 
     if (!idStr || !name || !ip) return;
 
@@ -159,7 +183,7 @@ export class Arcon extends BaseClient {
   }
 
   private _playerDisconnected(data: string) {
-    const [_, idStr] = data.match(/^Player #(\d+) .+ disconnected$/) ?? [];
+    const [_, idStr] = data.match(regexes.playerDisconnected) ?? [];
 
     if (!idStr) return;
 
@@ -175,8 +199,7 @@ export class Arcon extends BaseClient {
   }
 
   private _playerKicked(data: string) {
-    const [_, idStr, reason] =
-      data.match(/^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/) ?? [];
+    const [_, idStr, reason] = data.match(regexes.playerKicked) ?? [];
 
     if (!idStr || !reason) return;
 
@@ -192,7 +215,7 @@ export class Arcon extends BaseClient {
   }
 
   private _playerGuidCalculated(data: string) {
-    const [_, idStr, name, guid] = data.match(/^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/) ?? [];
+    const [_, idStr, name, guid] = data.match(regexes.playerGuidCalculated) ?? [];
 
     if (!idStr || !name || !guid) return;
 
@@ -208,7 +231,7 @@ export class Arcon extends BaseClient {
   }
 
   private _playerGuidVerified(data: string) {
-    const [_, idStr] = data.match(/^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/) ?? [];
+    const [_, idStr] = data.match(regexes.playerGuidVerified) ?? [];
 
     if (!idStr) return;
 
@@ -273,9 +296,7 @@ export class Arcon extends BaseClient {
    * @param data Raw data from the server.
    */
   private _processPlayerList(data: string) {
-    const players = data.matchAll(
-      /^(\d+)\s+([\d\.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm
-    );
+    const players = data.matchAll(regexes.playerList);
 
     for (const player of players) {
       const [_, idStr, ip, pingStr, guid, verifiedStr, name, lobbyStr] = player;
