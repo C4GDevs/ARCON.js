@@ -60,6 +60,10 @@ export class Arcon extends BaseClient {
     });
   }
 
+  /**
+   * Closes the connection to the server.
+   * @param abortReconnect - Whether to abort the reconnection process.
+   */
   override close(abortReconnect: boolean) {
     clearInterval(this._commandProcessInterval);
     clearInterval(this._playerUpdateInterval);
@@ -126,91 +130,97 @@ export class Arcon extends BaseClient {
     const data = packet.data.toString();
 
     // Player connected
-    if (/^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/.test(data)) {
-      const [_, idStr, name, ip] = data.match(/^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/) ?? [];
-
-      if (!idStr || !name || !ip) return;
-
-      const id = parseInt(idStr);
-
-      this._connectingPlayers.set(id, { name, ip });
-      return;
-    }
+    if (/^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/.test(data)) return this._playerConnected(data);
 
     // Player guid calculated
-    if (/^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/.test(data)) {
-      const [_, idStr, name, guid] = data.match(/^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/) ?? [];
-
-      if (!idStr || !name || !guid) return;
-
-      const id = parseInt(idStr);
-
-      const playerInfo = this._connectingPlayers.get(id);
-
-      if (!playerInfo) return;
-
-      const player = new Player(guid, id, playerInfo.ip, playerInfo.name, -1, true, false);
-
-      this._players.push(player);
-      return;
-    }
+    if (/^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/.test(data)) return this._playerGuidCalculated(data);
 
     // Player guid verified
-    if (/^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/.test(data)) {
-      const [_, idStr] = data.match(/^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/) ?? [];
-
-      if (!idStr) return;
-
-      const id = parseInt(idStr);
-
-      const player = this._players.find((p) => p.id === id);
-
-      if (!player) return;
-
-      player.verified = true;
-
-      this.emit('playerConnected', player);
-      return;
-    }
+    if (/^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/.test(data)) return this._playerGuidVerified(data);
 
     // Player disconnected
-    if (/^Player #(\d+) (.+) disconnected$/.test(data)) {
-      const [_, idStr] = data.match(/^Player #(\d+) .+ disconnected$/) ?? [];
-
-      if (!idStr) return;
-
-      const id = parseInt(idStr);
-
-      const player = this._players.find((p) => p.id === id);
-
-      if (!player) return;
-
-      this._players = this._players.filter((p) => p.id !== id);
-
-      this.emit('playerDisconnected', player, 'disconnected');
-      return;
-    }
+    if (/^Player #(\d+) (.+) disconnected$/.test(data)) return this._playerDisconnected(data);
 
     // Player kicked
-    if (/^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/) {
-      const [_, idStr, reason] =
-        data.match(/^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/) ?? [];
-
-      if (!idStr || !reason) return;
-
-      const id = parseInt(idStr);
-
-      const player = this._players.find((p) => p.id === id);
-
-      if (!player) return;
-
-      this._players = this._players.filter((p) => p.id !== id);
-
-      this.emit('playerDisconnected', player, reason);
-    }
+    if (/^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/) return this._playerKicked(data);
 
     // TODO: Handle BattlEye logs
     if (/^[a-zA-Z]+ Log/.test(data)) return;
+  }
+
+  private _playerConnected(data: string) {
+    const [_, idStr, name, ip] = data.match(/^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/) ?? [];
+
+    if (!idStr || !name || !ip) return;
+
+    const id = parseInt(idStr);
+
+    this._connectingPlayers.set(id, { name, ip });
+  }
+
+  private _playerDisconnected(data: string) {
+    const [_, idStr] = data.match(/^Player #(\d+) .+ disconnected$/) ?? [];
+
+    if (!idStr) return;
+
+    const id = parseInt(idStr);
+
+    const player = this._players.find((p) => p.id === id);
+
+    if (!player) return;
+
+    this._players = this._players.filter((p) => p.id !== id);
+
+    this.emit('playerDisconnected', player, 'disconnected');
+  }
+
+  private _playerKicked(data: string) {
+    const [_, idStr, reason] =
+      data.match(/^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/) ?? [];
+
+    if (!idStr || !reason) return;
+
+    const id = parseInt(idStr);
+
+    const player = this._players.find((p) => p.id === id);
+
+    if (!player) return;
+
+    this._players = this._players.filter((p) => p.id !== id);
+
+    this.emit('playerDisconnected', player, reason);
+  }
+
+  private _playerGuidCalculated(data: string) {
+    const [_, idStr, name, guid] = data.match(/^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/) ?? [];
+
+    if (!idStr || !name || !guid) return;
+
+    const id = parseInt(idStr);
+
+    const playerInfo = this._connectingPlayers.get(id);
+
+    if (!playerInfo) return;
+
+    const player = new Player(guid, id, playerInfo.ip, playerInfo.name, -1, true, false);
+
+    this._players.push(player);
+  }
+
+  private _playerGuidVerified(data: string) {
+    const [_, idStr] = data.match(/^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/) ?? [];
+
+    if (!idStr) return;
+
+    const id = parseInt(idStr);
+
+    const player = this._players.find((p) => p.id === id);
+
+    if (!player) return;
+
+    player.verified = true;
+
+    this.emit('playerConnected', player);
   }
 
   private _processCommand(packet: Packet) {
