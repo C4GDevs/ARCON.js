@@ -107,11 +107,12 @@ export class Arcon extends BaseClient {
   }
 
   private _beLog(data: string) {
-    const [_, type, idStr, guid, filter, log] = data.match(regexes.beLog) ?? [];
+    const [_, type, idStr, guid, filterStr, log] = data.match(regexes.beLog) ?? [];
 
-    if (!type || !idStr || !guid || !filter) return;
+    if (!type || !idStr || !guid || !filterStr) return;
 
     const id = parseInt(idStr);
+    const filter = parseInt(filterStr);
 
     const player = this._players.find((p) => p.id === id);
 
