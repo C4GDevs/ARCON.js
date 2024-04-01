@@ -93,7 +93,7 @@ export class BaseClient extends EventEmitter {
 
   private _checkConnection() {
     if (this._lastPacketReceivedAt.getTime() + 25_000 < Date.now()) {
-      this.close(true);
+      this.close(false);
     }
   }
 

@@ -2,6 +2,11 @@ import { BaseClient, ClientOptions } from './client';
 import { CommandPacketPart, Packet, PacketTypes } from './packet';
 import { Player } from './player';
 
+export interface ArconOptions extends ClientOptions {
+  /** The interval for updating player data. Minimum 5000ms. */
+  playerUpdateInterval?: number;
+}
+
 export class Arcon extends BaseClient {
   private _connectingPlayers = new Map<number, { name: string; ip: string }>();
 
@@ -30,11 +35,16 @@ export class Arcon extends BaseClient {
   /** Interval for updating player data. */
   private _playerUpdateInterval: NodeJS.Timeout;
 
+  /** Time between player update requests. */
+  private _playerUpdateIntervalTime: number;
+
   /** Whether we are currently processing a command. */
   private _waitingForResponse = false;
 
-  constructor(options: ClientOptions) {
+  constructor(options: ArconOptions) {
     super(options);
+
+    this._playerUpdateIntervalTime = options.playerUpdateInterval ?? 5000;
 
     this.on('connected', () => {
       this.sendCommand('players');
@@ -46,7 +56,7 @@ export class Arcon extends BaseClient {
         const playerUpdateQueued = this._commandQueue.some((packet) => packet.data?.toString() === 'players');
 
         if (!playerUpdateQueued) this.sendCommand('players');
-      }, 5000);
+      }, this._playerUpdateIntervalTime);
     });
   }
 
@@ -59,7 +69,15 @@ export class Arcon extends BaseClient {
     this._commandSendAttempts = 0;
     this._packetParts = [];
 
+    this._players = [];
+    this._connectingPlayers = new Map();
+    this._hasReceivedPlayers = false;
+
     super.close(abortReconnect);
+  }
+
+  public get players() {
+    return this._players;
   }
 
   /**
@@ -259,19 +277,23 @@ export class Arcon extends BaseClient {
     // Server is unreachable.
     if (this._commandSendAttempts > 5) {
       this.emit('error', new Error('Command response timeout'));
-      this.close(true);
+      this.close(false);
       return;
     }
 
     // Resend command if the server hasn't replied.
-    if (
-      this._commandSendTime.getTime() + 3000 < Date.now() &&
-      this._lastCommandPartReceivedAt.getTime() + 1000 < Date.now()
-    ) {
-      this._commandSendAttempts++;
-      this._commandSendTime = new Date();
+    const timeSinceLastSend = Date.now() - this._commandSendTime.getTime();
 
-      this._socket.send(this._commandQueue[0].toBuffer());
-    }
+    if (timeSinceLastSend < 4000) return;
+
+    const timeSinceLastPacket = Date.now() - this._lastCommandPartReceivedAt.getTime();
+
+    // Don't resend if we're still receiving parts of the command.
+    if (timeSinceLastPacket < 500) return;
+
+    this._commandSendAttempts++;
+    this._commandSendTime = new Date();
+
+    this._socket.send(this._commandQueue[0].toBuffer());
   }
 }
