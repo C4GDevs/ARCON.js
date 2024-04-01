@@ -216,46 +216,7 @@ export class Arcon extends BaseClient {
   private _processCommand(packet: Packet) {
     const data = packet.data!.toString();
 
-    if (data.startsWith('Players on server:')) {
-      const players = data.matchAll(
-        /^(\d+)\s+([\d\.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm
-      );
-
-      for (const player of players) {
-        const [_, idStr, ip, pingStr, guid, verifiedStr, name, lobbyStr] = player;
-
-        const id = parseInt(idStr);
-        const ping = parseInt(pingStr);
-        const verified = verifiedStr === 'OK';
-        const lobby = lobbyStr === 'Lobby';
-
-        const existingPlayer = this._players.find((p) => p.id === id);
-
-        // Update the player if they already exist.
-        if (existingPlayer) {
-          const _changes = [
-            existingPlayer.ping !== ping,
-            existingPlayer.verified !== verified,
-            existingPlayer.lobby !== lobby
-          ];
-
-          existingPlayer.lobby = lobby;
-          existingPlayer.ping = ping;
-          existingPlayer.verified = verified;
-
-          if (_changes.some((c) => c)) this.emit('playerUpdated', existingPlayer, _changes);
-          continue;
-        }
-
-        // Only add to players list if we haven't fetched them yet.
-        if (!this._hasReceivedPlayers) this._players.push(new Player(guid, id, ip, name, ping, lobby, verified));
-      }
-
-      if (!this._hasReceivedPlayers) {
-        this.emit('players', this._players);
-        this._hasReceivedPlayers = true;
-      }
-    }
+    if (data.startsWith('Players on server:')) return this._processPlayerList(data);
   }
 
   private _processCommandQueue() {
@@ -295,5 +256,50 @@ export class Arcon extends BaseClient {
     this._commandSendTime = new Date();
 
     this._socket.send(this._commandQueue[0].toBuffer());
+  }
+
+  /**
+   * Processes the list of players on the server.
+   * @param data Raw data from the server.
+   */
+  private _processPlayerList(data: string) {
+    const players = data.matchAll(
+      /^(\d+)\s+([\d\.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm
+    );
+
+    for (const player of players) {
+      const [_, idStr, ip, pingStr, guid, verifiedStr, name, lobbyStr] = player;
+
+      const id = parseInt(idStr);
+      const ping = parseInt(pingStr);
+      const verified = verifiedStr === 'OK';
+      const lobby = lobbyStr === 'Lobby';
+
+      const existingPlayer = this._players.find((p) => p.id === id);
+
+      // Update the player if they already exist.
+      if (existingPlayer) {
+        const _changes = [
+          existingPlayer.ping !== ping,
+          existingPlayer.verified !== verified,
+          existingPlayer.lobby !== lobby
+        ];
+
+        existingPlayer.lobby = lobby;
+        existingPlayer.ping = ping;
+        existingPlayer.verified = verified;
+
+        if (_changes.some((c) => c)) this.emit('playerUpdated', existingPlayer, _changes);
+        continue;
+      }
+
+      // Only add to players list if we haven't fetched them yet.
+      if (!this._hasReceivedPlayers) this._players.push(new Player(guid, id, ip, name, ping, lobby, verified));
+    }
+
+    if (!this._hasReceivedPlayers) {
+      this.emit('players', this._players);
+      this._hasReceivedPlayers = true;
+    }
   }
 }
