@@ -17,7 +17,7 @@ export interface ClientOptions {
   autoReconnect?: boolean;
 }
 
-export declare interface BaseClient {
+declare interface BaseClientEvents {
   on(event: 'connected', listener: () => void): this;
   on(event: 'disconnected', listener: () => void): this;
   on(event: 'error', listener: (error: Error) => void): this;
@@ -27,7 +27,7 @@ export declare interface BaseClient {
  * The minimum viable implementation of an RCON client.
  * @extends EventEmitter
  */
-export class BaseClient extends EventEmitter {
+export class BaseClient extends EventEmitter implements BaseClientEvents {
   protected _connected = false;
   protected _socket: Socket;
 

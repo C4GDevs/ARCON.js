@@ -26,7 +26,7 @@ const regexes = {
   adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/
 };
 
-export declare interface Arcon {
+declare interface ArconEvents {
   on(event: 'connected', listener: () => void): this;
   on(event: 'disconnected', listener: () => void): this;
   on(event: 'error', listener: (error: Error) => void): this;
@@ -39,7 +39,7 @@ export declare interface Arcon {
   on(event: 'adminMessage', listener: (id: number, channel: string, message: string) => void): this;
 }
 
-export class Arcon extends BaseClient {
+export class Arcon extends BaseClient implements ArconEvents {
   private _connectingPlayers = new Map<number, { name: string; ip: string }>();
 
   /** Interval for sending commands to server. */
