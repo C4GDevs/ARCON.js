@@ -15,7 +15,8 @@ const regexes = {
   playerKicked: /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/,
   beLog: /^([a-zA-Z]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/,
   playerList: /^(\d+)\s+([\d\.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
-  playerMessage: /^\(([a-zA-Z]+)\) (.+)$/
+  playerMessage: /^\(([a-zA-Z]+)\) (.+)$/,
+  adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/
 };
 
 export class Arcon extends BaseClient {
@@ -107,6 +108,16 @@ export class Arcon extends BaseClient {
     this._commandQueue.push(packet);
   }
 
+  private _adminMessage(data: string) {
+    const [_, idStr, channel, message] = data.match(regexes.adminMessage) ?? [];
+
+    if (!idStr || !channel || !message) return;
+
+    const id = parseInt(idStr);
+
+    this.emit('adminMessage', id, channel, message);
+  }
+
   private _beLog(data: string) {
     const [_, type, idStr, guid, filterStr, log] = data.match(regexes.beLog) ?? [];
 
@@ -173,7 +184,11 @@ export class Arcon extends BaseClient {
     // BE log
     if (regexes.beLog.test(data)) return this._beLog(data);
 
+    // Player message
     if (regexes.playerMessage.test(data)) return this._playerMessage(data);
+
+    // RCon admin message
+    if (regexes.adminMessage.test(data)) return this._adminMessage(data);
   }
 
   private _playerConnected(data: string) {
