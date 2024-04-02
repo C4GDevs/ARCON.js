@@ -34,7 +34,7 @@ connection.connect();
 
 ### Events
 
-Being an event-based library, there are multiple events that you can subscribe to. A list of all events can be found [here](../src/Arcon/index.ts#22).
+Being an event-based library, there are multiple events that you can subscribe to. A list of all events can be found [here](../src/Arcon/index.ts#L29).
 Note that if you do not add a listener to the `error` event, your application will crash if an error is ever created.
 
 ```ts
