@@ -87,7 +87,7 @@ export class LoginPacket {
   toBuffer() {
     const header = Buffer.from('BE');
 
-    let prefixedData = Buffer.from([0xff, this.type, ...this.data]);
+    const prefixedData = Buffer.from([0xff, this.type, ...this.data]);
 
     const checksum = crc32(prefixedData).reverse();
 

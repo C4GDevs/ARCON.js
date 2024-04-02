@@ -123,7 +123,7 @@ export class BaseClient extends EventEmitter {
     this.emit('connected');
   }
 
-  protected _handleCommandPacket(packet: Packet | CommandPacketPart) {}
+  protected _handleCommandPacket(_packet: Packet | CommandPacketPart) {}
   protected _handleMessagePacket(packet: Packet) {
     const response = Packet.create(PacketTypes.Message, null, packet.sequence);
 

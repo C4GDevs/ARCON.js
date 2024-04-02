@@ -1,1 +1,1 @@
-export { default as Arcon } from './Arcon';
+export { Arcon } from './Arcon';

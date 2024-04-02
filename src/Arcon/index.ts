@@ -8,13 +8,13 @@ export interface ArconOptions extends ClientOptions {
 }
 
 const regexes = {
-  playerConnected: /^Player #(\d+) (.+) \(([\d\.]+):\d+\) connected$/,
+  playerConnected: /^Player #(\d+) (.+) \(([\d.]+):\d+\) connected$/,
   playerGuidCalculated: /^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/,
   playerGuidVerified: /^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/,
   playerDisconnected: /^Player #(\d+) (.+) disconnected$/,
   playerKicked: /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/,
   beLog: /^([a-zA-Z]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/,
-  playerList: /^(\d+)\s+([\d\.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
+  playerList: /^(\d+)\s+([\d.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
   playerMessage: /^\(([a-zA-Z]+)\) (.+)$/,
   adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/
 };
