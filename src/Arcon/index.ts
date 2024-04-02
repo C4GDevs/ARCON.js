@@ -99,6 +99,8 @@ export class Arcon extends BaseClient {
   /**
    * Adds a command to the queue to be sent to the server.
    * @param command Formatted command data.
+   * @example arcon.sendCommand('reassign');
+   * @example arcon.sendCommand('say -1 Hello Everyone');
    */
   public sendCommand(command: string) {
     const sequence = this._getSequence();
@@ -149,8 +151,11 @@ export class Arcon extends BaseClient {
       }
     } else commandPacket = packet;
 
-    // Ignore heartbeat packets.
-    if (!commandPacket || !commandPacket.data?.length) return;
+    // Ignore if we haven't received the full command yet.
+    if (!commandPacket) return;
+
+    // Ignore heartbeats.
+    if (!this._commandQueue.some((x) => x.sequence === commandPacket!.sequence)) return;
 
     this._processCommand(commandPacket);
 
