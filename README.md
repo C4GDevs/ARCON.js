@@ -1,4 +1,4 @@
-# ARCON.js [![](https://img.shields.io/npm/v/arcon.js?maxAge=3600)](https://npmjs.com/package/arcon.js) [![install size](https://packagephobia.com/badge?p=arcon.js)](https://packagephobia.com/result?p=arcon.js) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Tests](https://github.com/C4GDevs/ARCON.js/actions/workflows/test.yml/badge.svg?branch=v2.x&event=push)](https://github.com/C4GDevs/ARCON.js/actions/workflows/test.yml)
+# ARCON.js [![](https://img.shields.io/npm/v/arcon.js?maxAge=3600)](https://npmjs.com/package/arcon.js) [![install size](https://packagephobia.com/badge?p=arcon.js)](https://packagephobia.com/result?p=arcon.js) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Tests](https://github.com/C4GDevs/ARCON.js/actions/workflows/test.yml/badge.svg?branch=v5.x&event=push)](https://github.com/C4GDevs/ARCON.js/actions/workflows/test.yml)
 
 ARCON.js is a lightweight, event-based RCON client for Arma III servers designed to be reliable and easy to use.
 
