@@ -14,7 +14,8 @@ const regexes = {
   playerDisconnected: /^Player #(\d+) (.+) disconnected$/,
   playerKicked: /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/,
   beLog: /^([a-zA-Z]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/,
-  playerList: /^(\d+)\s+([\d\.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm
+  playerList: /^(\d+)\s+([\d\.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
+  playerMessage: /^\(([a-zA-Z]+)\) (.+)$/
 };
 
 export class Arcon extends BaseClient {
@@ -171,6 +172,8 @@ export class Arcon extends BaseClient {
 
     // BE log
     if (regexes.beLog.test(data)) return this._beLog(data);
+
+    if (regexes.playerMessage.test(data)) return this._playerMessage(data);
   }
 
   private _playerConnected(data: string) {
@@ -245,6 +248,26 @@ export class Arcon extends BaseClient {
     player.verified = true;
 
     this.emit('playerConnected', player);
+  }
+
+  private _playerMessage(data: string) {
+    const [_, channel, message] = data.match(regexes.playerMessage) ?? [];
+
+    if (!channel || !message) return;
+
+    // Find all players that match the start of the message
+    // and sort them by name length, longest name is best match.
+    const matchingNames = this._players
+      .filter((p) => message.startsWith(p.name))
+      .sort((a, b) => b.name.length - a.name.length);
+
+    if (matchingNames.length === 0) return;
+
+    const player = matchingNames[0];
+
+    const text = message.slice(player.name.length + 2);
+
+    this.emit('playerMessage', player, channel, text);
   }
 
   private _processCommand(packet: Packet) {
