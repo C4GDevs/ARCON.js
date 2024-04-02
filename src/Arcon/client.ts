@@ -17,6 +17,12 @@ export interface ClientOptions {
   autoReconnect?: boolean;
 }
 
+export declare interface BaseClient {
+  on(event: 'connected', listener: () => void): this;
+  on(event: 'disconnected', listener: () => void): this;
+  on(event: 'error', listener: (error: Error) => void): this;
+}
+
 /**
  * The minimum viable implementation of an RCON client.
  * @extends EventEmitter
@@ -89,6 +95,8 @@ export class BaseClient extends EventEmitter {
     if (abortReconnect || !this._autoReconnect) return;
 
     setTimeout(() => this.connect(), 5000);
+
+    this.emit('disconnected');
   }
 
   private _checkConnection() {
