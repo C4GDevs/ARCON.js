@@ -10,9 +10,10 @@ export interface ArconOptions extends ClientOptions {
 
 export interface BeLog {
   type: string;
-  player: Player;
   filter: number;
   log: string;
+  guid: string;
+  player?: Player;
 }
 
 const regexes = {
@@ -148,7 +149,7 @@ export class Arcon extends BaseClient {
   private _beLog(data: string) {
     const [_, type, idStr, guid, filterStr, log] = data.match(regexes.beLog) ?? [];
 
-    if (!type || !idStr || !guid || !filterStr) {
+    if (!type || !idStr || !guid || !filterStr || !log) {
       const error = new ServerMessageError('Failed to parse message', 'beLog', data);
       this.emit('error', error);
       return;
@@ -159,13 +160,19 @@ export class Arcon extends BaseClient {
 
     const player = this._players.find((p) => p.id === id);
 
+    const baseLog: BeLog = { type, filter, log, guid };
+
+    // BE logs are important, so we'll emit them even if the player isn't found.
     if (!player) {
+      // It may be better to not emit an error, or make a different event.
       const error = new ServerMessageError('Player not found', 'beLog', data);
       this.emit('error', error);
+
+      this.emit('beLog', baseLog);
       return;
     }
 
-    this.emit('beLog', { type, player, filter, log });
+    this.emit('beLog', { ...baseLog, player });
   }
 
   override _handleCommandPacket(packet: Packet | CommandPacketPart) {
