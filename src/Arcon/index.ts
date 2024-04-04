@@ -1,4 +1,5 @@
 import { BaseClient, ClientOptions } from './client';
+import { ServerMessageError } from './error';
 import { CommandPacketPart, Packet, PacketTypes } from './packet';
 import { Player } from './player';
 
@@ -26,10 +27,10 @@ const regexes = {
   adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/
 };
 
-declare interface ArconEvents {
+export declare interface Arcon {
   on(event: 'connected', listener: () => void): this;
   on(event: 'disconnected', listener: () => void): this;
-  on(event: 'error', listener: (error: Error) => void): this;
+  on(event: 'error', listener: (error: Error | ServerMessageError) => void): this;
   on(event: 'players', listener: (players: Player[]) => void): this;
   on(event: 'playerConnected', listener: (player: Player) => void): this;
   on(event: 'playerDisconnected', listener: (player: Player, reason: string) => void): this;
@@ -39,7 +40,7 @@ declare interface ArconEvents {
   on(event: 'adminMessage', listener: (id: number, channel: string, message: string) => void): this;
 }
 
-export class Arcon extends BaseClient implements ArconEvents {
+export class Arcon extends BaseClient {
   private _connectingPlayers = new Map<number, { name: string; ip: string }>();
 
   /** Interval for sending commands to server. */
@@ -133,7 +134,11 @@ export class Arcon extends BaseClient implements ArconEvents {
   private _adminMessage(data: string) {
     const [_, idStr, channel, message] = data.match(regexes.adminMessage) ?? [];
 
-    if (!idStr || !channel || !message) return;
+    if (!idStr || !channel || !message) {
+      const error = new ServerMessageError('Failed to parse message', 'adminMessage', data);
+      this.emit('error', error);
+      return;
+    }
 
     const id = parseInt(idStr);
 
@@ -143,14 +148,22 @@ export class Arcon extends BaseClient implements ArconEvents {
   private _beLog(data: string) {
     const [_, type, idStr, guid, filterStr, log] = data.match(regexes.beLog) ?? [];
 
-    if (!type || !idStr || !guid || !filterStr) return;
+    if (!type || !idStr || !guid || !filterStr) {
+      const error = new ServerMessageError('Failed to parse message', 'beLog', data);
+      this.emit('error', error);
+      return;
+    }
 
     const id = parseInt(idStr);
     const filter = parseInt(filterStr);
 
     const player = this._players.find((p) => p.id === id);
 
-    if (!player) return;
+    if (!player) {
+      const error = new ServerMessageError('Player not found', 'beLog', data);
+      this.emit('error', error);
+      return;
+    }
 
     this.emit('beLog', { type, player, filter, log });
   }
@@ -219,7 +232,11 @@ export class Arcon extends BaseClient implements ArconEvents {
   private _playerConnected(data: string) {
     const [_, idStr, name, ip] = data.match(regexes.playerConnected) ?? [];
 
-    if (!idStr || !name || !ip) return;
+    if (!idStr || !name || !ip) {
+      const error = new ServerMessageError('Failed to parse message', 'playerConnected', data);
+      this.emit('error', error);
+      return;
+    }
 
     const id = parseInt(idStr);
 
@@ -229,13 +246,21 @@ export class Arcon extends BaseClient implements ArconEvents {
   private _playerDisconnected(data: string) {
     const [_, idStr] = data.match(regexes.playerDisconnected) ?? [];
 
-    if (!idStr) return;
+    if (!idStr) {
+      const error = new ServerMessageError('Failed to parse message', 'playerDisconnected', data);
+      this.emit('error', error);
+      return;
+    }
 
     const id = parseInt(idStr);
 
     const player = this._players.find((p) => p.id === id);
 
-    if (!player) return;
+    if (!player) {
+      const error = new ServerMessageError('Player not found', 'playerDisconnected', data);
+      this.emit('error', error);
+      return;
+    }
 
     this._players = this._players.filter((p) => p.id !== id);
 
@@ -245,13 +270,21 @@ export class Arcon extends BaseClient implements ArconEvents {
   private _playerKicked(data: string) {
     const [_, idStr, reason] = data.match(regexes.playerKicked) ?? [];
 
-    if (!idStr || !reason) return;
+    if (!idStr || !reason) {
+      const error = new ServerMessageError('Failed to parse message', 'playerKicked', data);
+      this.emit('error', error);
+      return;
+    }
 
     const id = parseInt(idStr);
 
     const player = this._players.find((p) => p.id === id);
 
-    if (!player) return;
+    if (!player) {
+      const error = new ServerMessageError('Player not found', 'playerKicked', data);
+      this.emit('error', error);
+      return;
+    }
 
     this._players = this._players.filter((p) => p.id !== id);
 
@@ -261,13 +294,21 @@ export class Arcon extends BaseClient implements ArconEvents {
   private _playerGuidCalculated(data: string) {
     const [_, idStr, name, guid] = data.match(regexes.playerGuidCalculated) ?? [];
 
-    if (!idStr || !name || !guid) return;
+    if (!idStr || !name || !guid) {
+      const error = new ServerMessageError('Failed to parse message', 'playerGuidCalculated', data);
+      this.emit('error', error);
+      return;
+    }
 
     const id = parseInt(idStr);
 
     const playerInfo = this._connectingPlayers.get(id);
 
-    if (!playerInfo) return;
+    if (!playerInfo) {
+      const error = new ServerMessageError('Player not found', 'playerGuidCalculated', data);
+      this.emit('error', error);
+      return;
+    }
 
     const player = new Player(guid, id, playerInfo.ip, playerInfo.name, -1, true, false);
 
@@ -277,13 +318,21 @@ export class Arcon extends BaseClient implements ArconEvents {
   private _playerGuidVerified(data: string) {
     const [_, idStr] = data.match(regexes.playerGuidVerified) ?? [];
 
-    if (!idStr) return;
+    if (!idStr) {
+      const error = new ServerMessageError('Failed to parse message', 'playerGuidVerified', data);
+      this.emit('error', error);
+      return;
+    }
 
     const id = parseInt(idStr);
 
     const player = this._players.find((p) => p.id === id);
 
-    if (!player) return;
+    if (!player) {
+      const error = new ServerMessageError('Player not found', 'playerGuidVerified', data);
+      this.emit('error', error);
+      return;
+    }
 
     player.verified = true;
 
@@ -293,7 +342,11 @@ export class Arcon extends BaseClient implements ArconEvents {
   private _playerMessage(data: string) {
     const [_, channel, message] = data.match(regexes.playerMessage) ?? [];
 
-    if (!channel || !message) return;
+    if (!channel || !message) {
+      const error = new ServerMessageError('Failed to parse message', 'playerMessage', data);
+      this.emit('error', error);
+      return;
+    }
 
     // Find all players that match the start of the message
     // and sort them by name length, longest name is best match.
@@ -301,7 +354,11 @@ export class Arcon extends BaseClient implements ArconEvents {
       .filter((p) => message.startsWith(p.name))
       .sort((a, b) => b.name.length - a.name.length);
 
-    if (matchingNames.length === 0) return;
+    if (matchingNames.length === 0) {
+      const error = new ServerMessageError('Player not found', 'playerMessage', data);
+      this.emit('error', error);
+      return;
+    }
 
     const player = matchingNames[0];
 
