@@ -257,6 +257,11 @@ export class Arcon extends BaseClient {
     const player = this._players.find((p) => p.id === id);
 
     if (!player) {
+      if (this._connectingPlayers.has(id)) {
+        this._connectingPlayers.delete(id);
+        return;
+      }
+
       const error = new ServerMessageError('Player not found', 'playerDisconnected', data);
       this.emit('error', error);
       return;
@@ -333,6 +338,8 @@ export class Arcon extends BaseClient {
       this.emit('error', error);
       return;
     }
+
+    if (this._connectingPlayers.has(id)) this._connectingPlayers.delete(id);
 
     player.verified = true;
 
