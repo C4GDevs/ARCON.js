@@ -5,7 +5,9 @@
   "license": "MIT",
   "keywords": [
     "rcon",
-    "arma"
+    "battleye",
+    "arma",
+    "arma3"
   ],
   "author": "JonesBryan",
   "homepage": "https://github.com/C4GDevs/arcon.js",
