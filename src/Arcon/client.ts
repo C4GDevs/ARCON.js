@@ -79,12 +79,15 @@ export class BaseClient extends EventEmitter {
   }
 
   public close(abortReconnect: boolean) {
-    if (!this._connected) return;
-
     this._connected = false;
 
     this._socket.removeAllListeners();
-    this._socket.close();
+
+    if (!this._connected) {
+      this._socket.close();
+
+      this._connected = false;
+    }
 
     this._seqeuence = 0;
 
