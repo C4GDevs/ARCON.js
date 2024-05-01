@@ -79,12 +79,9 @@ export class BaseClient extends EventEmitter {
   }
 
   public close(abortReconnect: boolean) {
-    this._connected = false;
-
-    this._socket.removeAllListeners();
-
     if (this._connected) {
       this._socket.close();
+      this._socket.removeAllListeners();
 
       this._connected = false;
     }
@@ -95,11 +92,11 @@ export class BaseClient extends EventEmitter {
     clearTimeout(this._loginTimeout);
     clearInterval(this._connectionCheckInterval);
 
+    this.emit('disconnected');
+
     if (abortReconnect || !this._autoReconnect) return;
 
     setTimeout(() => this.connect(), 5000);
-
-    this.emit('disconnected');
   }
 
   private _checkConnection() {
