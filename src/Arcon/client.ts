@@ -83,7 +83,7 @@ export class BaseClient extends EventEmitter {
 
     this._socket.removeAllListeners();
 
-    if (!this._connected) {
+    if (this._connected) {
       this._socket.close();
 
       this._connected = false;
