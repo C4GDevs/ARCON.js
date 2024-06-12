@@ -58,6 +58,8 @@ export class Arcon extends BaseClient {
 
   private _hasReceivedPlayers = false;
 
+  private _isClosing = false;
+
   /** Timestamp of the last command part received. */
   private _lastCommandPartReceivedAt: Date = new Date();
 
@@ -99,6 +101,8 @@ export class Arcon extends BaseClient {
    * @param abortReconnect - Whether to abort the reconnection process.
    */
   override close(abortReconnect: boolean) {
+    this._isClosing = true;
+
     clearInterval(this._commandProcessInterval);
     clearInterval(this._playerUpdateInterval);
 
@@ -112,6 +116,8 @@ export class Arcon extends BaseClient {
     this._hasReceivedPlayers = false;
 
     super.close(abortReconnect);
+
+    this._isClosing = false;
   }
 
   public get players() {
@@ -388,7 +394,7 @@ export class Arcon extends BaseClient {
   }
 
   private _processCommandQueue() {
-    if (this._commandQueue.length === 0 || !this._connected) return;
+    if (this._commandQueue.length === 0 || !this._connected || this._isClosing) return;
 
     // We're free to send a new command.
     if (!this._waitingForResponse) {
