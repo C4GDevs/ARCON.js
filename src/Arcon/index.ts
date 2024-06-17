@@ -213,7 +213,7 @@ export class Arcon extends BaseClient {
 
   override _handleMessagePacket(packet: Packet): void {
     super._handleMessagePacket(packet);
-    if (!this._hasReceivedPlayers || !packet.data) return;
+    if (!this._hasReceivedPlayers || !packet.data || this._isClosing) return;
 
     const data = packet.data.toString();
 

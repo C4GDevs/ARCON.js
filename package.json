@@ -1,6 +1,6 @@
 {
   "name": "arcon.js",
-  "version": "5.2.4",
+  "version": "5.2.5",
   "description": "An RCON client library for Arma III",
   "license": "MIT",
   "keywords": [
