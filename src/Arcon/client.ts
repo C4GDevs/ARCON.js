@@ -101,6 +101,7 @@ export class BaseClient extends EventEmitter {
 
   private _checkConnection() {
     if (this._lastPacketReceivedAt.getTime() + 25_000 < Date.now()) {
+      this.emit('error', new Error('Connection lost'));
       this.close(false);
     }
   }
