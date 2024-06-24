@@ -40,6 +40,7 @@ export class BaseClient extends EventEmitter {
   private _heartbeatInverval: NodeJS.Timeout;
   private _loginTimeout: NodeJS.Timeout;
   private _connectionCheckInterval: NodeJS.Timeout;
+  private _reconnectTimeout: NodeJS.Timeout;
 
   // Connection options
   private _host: string;
@@ -96,7 +97,9 @@ export class BaseClient extends EventEmitter {
 
     if (abortReconnect || !this._autoReconnect) return;
 
-    setTimeout(() => this.connect(), 5000);
+    if (!this._reconnectTimeout) {
+      this._reconnectTimeout = setTimeout(() => this.connect(), 5000);
+    }
   }
 
   private _checkConnection() {
