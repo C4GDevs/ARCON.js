@@ -95,11 +95,12 @@ export class BaseClient extends EventEmitter {
 
     this.emit('disconnected');
 
-    if (abortReconnect || !this._autoReconnect) return;
-
-    if (!this._reconnectTimeout) {
-      this._reconnectTimeout = setTimeout(() => this.connect(), 5000);
+    if (abortReconnect || !this._autoReconnect) {
+      clearTimeout(this._reconnectTimeout);
+      return;
     }
+
+    this._reconnectTimeout = setTimeout(() => this.connect(), 5000);
   }
 
   private _checkConnection() {
