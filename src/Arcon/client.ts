@@ -97,6 +97,7 @@ export class BaseClient extends EventEmitter {
 
     if (abortReconnect || !this._autoReconnect) {
       clearTimeout(this._reconnectTimeout);
+      this.removeAllListeners();
       return;
     }
 
