@@ -92,6 +92,7 @@ export class BaseClient extends EventEmitter {
     clearInterval(this._heartbeatInverval);
     clearTimeout(this._loginTimeout);
     clearInterval(this._connectionCheckInterval);
+    clearInterval(this._reconnectTimeout);
 
     this.emit('disconnected');
 
