@@ -14,7 +14,7 @@ An RCON connection can be established by instantiating the `Arcon` class and cal
 
 | Property             | Description                                                                     | type   | required | default |
 | -------------------- | ------------------------------------------------------------------------------- | ------ | -------- | ------- |
-| ip                   | The IP address of the RCON server.                                              | string | true     |         |
+| host                 | The hostname/IP address of the RCON server.                                     | string | true     |         |
 | port                 | The port of the RCON server.                                                    | number | true     |         |
 | password             | The password of the RCON server.                                                | string | true     |         |
 | autoReconnect        | Whether to automatically reconnect on disconnects. Excludes incorrect password. | bool   | false    | true    |
@@ -24,7 +24,7 @@ An RCON connection can be established by instantiating the `Arcon` class and cal
 import { Arcon } from 'arcon.js';
 
 const connection = new Arcon({
-  ip: '127.0.0.1',
+  host: '127.0.0.1',
   port: 2312,
   password: '12345'
 });
@@ -41,7 +41,7 @@ Note that if you do not add a listener to the `error` event, your application wi
 import { Arcon, Player, BeLog } from 'arcon.js';
 
 const connection = new Arcon({
-  ip: '127.0.0.1',
+  host: '127.0.0.1',
   port: 2312,
   password: '12345'
 });
