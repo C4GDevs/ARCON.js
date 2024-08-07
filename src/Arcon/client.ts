@@ -2,6 +2,13 @@ import { Socket, createSocket } from 'dgram';
 import EventEmitter from 'events';
 import { CommandPacketPart, LoginPacket, Packet, PacketError, PacketTypes, createPacket } from './packet';
 
+export enum ConnectionState {
+  CLOSED,
+  CLOSING,
+  CONNECTING,
+  CONNECTED
+}
+
 export interface ClientOptions {
   /** Host of the RCON server. */
   host: string;
@@ -17,36 +24,22 @@ export interface ClientOptions {
   autoReconnect?: boolean;
 }
 
-export declare interface BaseClient {
-  on(event: 'connected', listener: () => void): this;
-  on(event: 'disconnected', listener: () => void): this;
-  on(event: 'error', listener: (error: Error) => void): this;
-}
+export declare interface BaseClient {}
 
 /**
  * The minimum viable implementation of an RCON client.
  * @extends EventEmitter
  */
 export class BaseClient extends EventEmitter {
-  protected _connected = false;
-  protected _socket: Socket;
-
-  protected _seqeuence = 0;
-
-  private _lastPacketReceivedAt: Date;
-  private _sequenceModifiedAt: Date;
-
-  // Timeouts
-  private _heartbeatInverval: NodeJS.Timeout;
-  private _loginTimeout: NodeJS.Timeout;
-  private _connectionCheckInterval: NodeJS.Timeout;
-  private _reconnectTimeout: NodeJS.Timeout;
-
   // Connection options
   private _host: string;
   private _port: number;
   private _password: string;
-  protected _autoReconnect: boolean;
+  private _autoReconnect: boolean;
+
+  // Connection state
+  private _socket: Socket | null = null;
+  private _state: ConnectionState = ConnectionState.CLOSED;
 
   /**
    * @param options - The options for the ARCON instance.
@@ -61,130 +54,39 @@ export class BaseClient extends EventEmitter {
   }
 
   /**
-   * Opens a socket to the server and login.
+   * Opens a connection to the RCON server.
+   * @returns Whether the connection was successfully established.
    */
-  public connect() {
-    if (this._connected) return;
-    this._socket = createSocket('udp4');
+  public connect(): boolean {
+    if (this._state !== ConnectionState.CLOSED) return false;
 
-    this._socket.on('message', (buf) => this._parseMessage(buf));
+    this._state = ConnectionState.CONNECTING;
 
-    this._socket.once('connect', () => this._sendLogin());
+    this._setup();
 
-    this._socket.on('error', (error) => {
-      this.emit('error', error);
-      this.close(false);
-    });
-
-    this._socket.connect(this._port, this._host);
-  }
-
-  public close(abortReconnect: boolean) {
-    if (this._connected) {
-      this._socket.close();
-      this._socket.removeAllListeners();
-
-      this._connected = false;
-    }
-
-    this._seqeuence = 0;
-
-    clearInterval(this._heartbeatInverval);
-    clearTimeout(this._loginTimeout);
-    clearInterval(this._connectionCheckInterval);
-    clearInterval(this._reconnectTimeout);
-
-    this.emit('disconnected');
-
-    if (abortReconnect || !this._autoReconnect) {
-      clearTimeout(this._reconnectTimeout);
-      this.removeAllListeners();
-      return;
-    }
-
-    this._reconnectTimeout = setTimeout(() => this.connect(), 5000);
-  }
-
-  private _checkConnection() {
-    if (this._lastPacketReceivedAt.getTime() + 25_000 < Date.now()) {
-      this.emit('error', new Error('Connection lost'));
-      this.close(false);
-    }
-  }
-
-  protected _getSequence() {
-    const sequence = this._seqeuence;
-    this._seqeuence = (this._seqeuence + 1) % 256;
-
-    this._sequenceModifiedAt = new Date();
-
-    return sequence;
-  }
-
-  private _handleLogin(packet: LoginPacket) {
-    clearTimeout(this._loginTimeout);
-
-    if (packet.data.toString() === '0') {
-      this.emit('error', new Error('Login failed'));
-      this.close(true);
-      return;
-    }
-
-    this._connected = true;
-
-    this._heartbeatInverval = setInterval(() => this._sendHeartbeat(), 1000);
-    this._connectionCheckInterval = setInterval(() => this._checkConnection(), 1000);
-
-    this.emit('connected');
-  }
-
-  protected _handleCommandPacket(_packet: Packet | CommandPacketPart) {}
-  protected _handleMessagePacket(packet: Packet) {
-    const response = Packet.create(PacketTypes.Message, null, packet.sequence);
-
-    this._socket.send(response.toBuffer());
-  }
-
-  private _parseMessage(buf: Buffer) {
-    const packet = createPacket(buf);
-
-    if (packet instanceof PacketError) return this.emit('error', packet);
-
-    this._lastPacketReceivedAt = new Date();
-
-    if (packet instanceof LoginPacket) return this._handleLogin(packet);
-
-    if (packet.type === PacketTypes.Message) return this._handleMessagePacket(packet);
-
-    return this._handleCommandPacket(packet);
+    return true;
   }
 
   /**
-   * Sends an empty command packet to the server.
-   * RCON protocol expects a heartbeat packet at least once
-   * every 45 seconds, if no other commands are sent.
+   * Closes the connection to the RCON server.
+   * @returns Whether the connection was successfully closed.
    */
-  private _sendHeartbeat() {
-    if (!this._connected) return;
+  public close(): boolean {
+    if (this._state !== ConnectionState.CONNECTED) return false;
 
-    if (this._sequenceModifiedAt && this._sequenceModifiedAt.getTime() + 22_500 > Date.now()) return;
+    this._state = ConnectionState.CLOSING;
 
-    const sequence = this._getSequence();
+    this._socket?.close();
+    this._socket = null;
 
-    const heartbeatPacket = Packet.create(PacketTypes.Command, null, sequence);
+    this._state = ConnectionState.CLOSED;
 
-    this._socket.send(heartbeatPacket.toBuffer());
+    return true;
   }
 
-  private _sendLogin() {
-    const loginPacket = LoginPacket.create(PacketTypes.Login, Buffer.from(this._password));
+  private _setup() {
+    this._socket = createSocket('udp4');
 
-    // Server is unreachable if it does not respond within 5 seconds.
-    this._loginTimeout = setTimeout(() => {
-      this.emit('error', new Error('Login timeout'));
-      this.close(false);
-    }, 5000);
-
-    this._socket.send(loginPacket.toBuffer());
+    this._socket.once('connect', () => {});
   }
 }
