@@ -110,9 +110,14 @@ export class BaseClient extends EventEmitter {
   }
 
   /**
+   * Handles the response to a command packet.
+   */
+  protected _handleCommandPacket(packet: Packet | CommandPacketPart) {}
+
+  /**
    * Handles the response to the login packet.
    */
-  private _handleLogin(packet: LoginPacket) {
+  private _handleLoginPacket(packet: LoginPacket) {
     this._clearTimeout(this._loginTimeout);
 
     if (packet.data.toString() === '0') {
@@ -136,9 +141,25 @@ export class BaseClient extends EventEmitter {
     }
 
     if (packet instanceof LoginPacket) {
-      this._handleLogin(packet);
+      this._handleLoginPacket(packet);
       return;
     }
+
+    if (packet.type === PacketTypes.Message) {
+      this._handleMessagePacket(packet);
+      return;
+    }
+
+    this._handleCommandPacket(packet);
+  }
+
+  /**
+   * Handles the response to a message packet.
+   */
+  protected _handleMessagePacket(packet: Packet) {
+    const response = Packet.create(PacketTypes.Message, null, packet.sequence);
+
+    this._socket?.send(response.toBuffer());
   }
 
   /**
