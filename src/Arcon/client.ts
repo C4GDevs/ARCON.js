@@ -126,6 +126,7 @@ export class BaseClient extends EventEmitter {
       return;
     }
 
+    this._state = ConnectionState.CONNECTED;
     this.emit('connected');
   }
 
@@ -144,6 +145,8 @@ export class BaseClient extends EventEmitter {
       this._handleLoginPacket(packet);
       return;
     }
+
+    if (this._state !== ConnectionState.CONNECTED) return;
 
     if (packet.type === PacketTypes.Message) {
       this._handleMessagePacket(packet);
