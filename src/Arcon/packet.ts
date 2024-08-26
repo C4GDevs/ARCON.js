@@ -70,18 +70,22 @@ export class Packet {
 export class LoginPacket {
   readonly prefix: string;
   readonly checksum: string;
-  readonly type = 0;
+  readonly type = PacketTypes.Login;
   readonly data: Buffer;
 
-  constructor(checksum: string, type: PacketTypes, data: Buffer) {
+  constructor(checksum: string, data: Buffer) {
     this.prefix = 'BE';
     this.checksum = checksum;
     this.data = data;
   }
 
-  static create(type: PacketTypes, data: Buffer) {
+  static create(data: Buffer | string) {
+    const type = PacketTypes.Login;
+
+    if (typeof data === 'string') data = Buffer.from(data);
+
     const checksum = crc32(Buffer.from([0xff, type, ...data])).reverse();
-    return new LoginPacket(checksum.toString(), type, data);
+    return new LoginPacket(checksum.toString(), data);
   }
 
   toBuffer() {
@@ -155,7 +159,7 @@ export const createPacket = (msg: Buffer) => {
   const type = msg[7];
   const data = msg.subarray(8);
 
-  if (type === PacketTypes.Login) return new LoginPacket(checksum, type, data);
+  if (type === PacketTypes.Login) return new LoginPacket(checksum, data);
 
   const sequence = data[0];
   const packetData = data.subarray(1);

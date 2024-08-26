@@ -41,6 +41,9 @@ export class BaseClient extends EventEmitter {
   private _socket: Socket | null = null;
   private _state: ConnectionState = ConnectionState.CLOSED;
 
+  // Timeouts
+  private _loginTimeout: NodeJS.Timeout | null = null;
+
   /**
    * @param options - The options for the ARCON instance.
    */
@@ -64,6 +67,8 @@ export class BaseClient extends EventEmitter {
 
     this._setup();
 
+    this._socket?.connect(this._port, this._host);
+
     return true;
   }
 
@@ -71,22 +76,105 @@ export class BaseClient extends EventEmitter {
    * Closes the connection to the RCON server.
    * @returns Whether the connection was successfully closed.
    */
-  public close(): boolean {
-    if (this._state !== ConnectionState.CONNECTED) return false;
-
+  public close(reason?: string): boolean {
+    // Capture state and prevent further close attempts
+    const state = this._state;
     this._state = ConnectionState.CLOSING;
 
-    this._socket?.close();
-    this._socket = null;
+    // Do nothing if the connection is already in process of closing
+    if (state === ConnectionState.CLOSED || state === ConnectionState.CLOSING) return false;
 
+    // Reset socket
+    if (this._socket) {
+      this._socket.close();
+      this._socket = null;
+    }
+
+    // Reset timeouts
+    this._clearTimeout(this._loginTimeout);
+
+    // Emit disconnected event
     this._state = ConnectionState.CLOSED;
-
+    this.emit('disconnected', reason);
     return true;
   }
 
+  /**
+   * Clears a timeout if it exists.
+   */
+  private _clearTimeout(timeout: NodeJS.Timeout | null) {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+  }
+
+  /**
+   * Handles the response to the login packet.
+   */
+  private _handleLogin(packet: LoginPacket) {
+    this._clearTimeout(this._loginTimeout);
+
+    if (packet.data.toString() === '0') {
+      this.emit('error', new Error('Invalid password.'));
+      this.close('Invalid password.');
+      return;
+    }
+
+    this.emit('connected');
+  }
+
+  /**
+   * Passes a received packet to the proper handler
+   */
+  private _handleMessage(data: Buffer) {
+    const packet = createPacket(data);
+
+    if (packet instanceof PacketError) {
+      this.emit('error', packet);
+      return;
+    }
+
+    if (packet instanceof LoginPacket) {
+      this._handleLogin(packet);
+      return;
+    }
+  }
+
+  /**
+   * Wrapper for sending a command to the RCON server.
+   */
+  private _send(data: Buffer) {
+    if (this._socket) {
+      this._socket.send(data);
+    }
+  }
+
+  /**
+   * Sends the login packet to the RCON server.
+   */
+  private _sendLogin() {
+    const packet = LoginPacket.create(this._password);
+
+    this._loginTimeout = setTimeout(() => {
+      this.close('Login timed out.');
+    }, 5000);
+
+    this._send(packet.toBuffer());
+  }
+
+  /**
+   * Sets up the socket event listeners.
+   */
   private _setup() {
     this._socket = createSocket('udp4');
 
-    this._socket.once('connect', () => {});
+    this._socket.once('connect', () => this._sendLogin());
+    this._socket.on('message', (data) => this._handleMessage(data));
+
+    this._socket.on('error', (error) => {
+      this.emit('error', error);
+      this.close('Socket error.');
+    });
   }
 }
