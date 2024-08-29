@@ -154,7 +154,7 @@ export class BaseClient extends EventEmitter {
 
     if (packet.data.toString() === '0') {
       this.emit('error', new Error('Invalid password.'));
-      this.close('Invalid password.');
+      this.close('Invalid password.', true);
       return;
     }
 
