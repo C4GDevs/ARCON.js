@@ -37,12 +37,17 @@ export class BaseClient extends EventEmitter {
   private _password: string;
   private _autoReconnect: boolean;
 
+  private _sequence = 0;
+
+  private _lastCommandPacketSentAt: Date | null = null;
+  private _lastCommandPacketReceivedAt: Date | null = null;
+
   // Connection state
   private _socket: Socket | null = null;
   private _state: ConnectionState = ConnectionState.CLOSED;
 
-  // Timeouts
-  private _loginTimeout: NodeJS.Timeout | null = null;
+  // Timeouts and intervals
+  private _timeouts = new Map<string, NodeJS.Timeout>();
 
   /**
    * @param options - The options for the ARCON instance.
@@ -76,7 +81,7 @@ export class BaseClient extends EventEmitter {
    * Closes the connection to the RCON server.
    * @returns Whether the connection was successfully closed.
    */
-  public close(reason?: string): boolean {
+  public close(reason?: string, abortReconnect: boolean = !this._autoReconnect): boolean {
     // Capture state and prevent further close attempts
     const state = this._state;
     this._state = ConnectionState.CLOSING;
@@ -90,35 +95,62 @@ export class BaseClient extends EventEmitter {
       this._socket = null;
     }
 
+    // Reset sequence and timers
+    this._sequence = 0;
+    this._lastCommandPacketSentAt = null;
+    this._lastCommandPacketReceivedAt = null;
+
     // Reset timeouts
-    this._clearTimeout(this._loginTimeout);
+    this._clearTimeout('login');
+    this._clearTimeout('heartbeat');
 
     // Emit disconnected event
     this._state = ConnectionState.CLOSED;
     this.emit('disconnected', reason);
+
+    if (!abortReconnect) {
+      this.connect();
+    }
+
     return true;
   }
 
   /**
    * Clears a timeout if it exists.
    */
-  private _clearTimeout(timeout: NodeJS.Timeout | null) {
+  private _clearTimeout(key: string) {
+    const timeout = this._timeouts.get(key);
     if (timeout) {
       clearTimeout(timeout);
-      timeout = null;
+      clearInterval(timeout);
+      this._timeouts.delete(key);
     }
+  }
+
+  /**
+   * Generates a sequence number for a packet.
+   */
+  protected _getSequence() {
+    const sequence = this._sequence;
+    this._sequence = (this._sequence + 1) % 256;
+
+    this._lastCommandPacketSentAt = new Date();
+
+    return sequence;
   }
 
   /**
    * Handles the response to a command packet.
    */
-  protected _handleCommandPacket(packet: Packet | CommandPacketPart) {}
+  protected _handleCommandPacket(packet: Packet | CommandPacketPart) {
+    this._lastCommandPacketReceivedAt = new Date();
+  }
 
   /**
    * Handles the response to the login packet.
    */
   private _handleLoginPacket(packet: LoginPacket) {
-    this._clearTimeout(this._loginTimeout);
+    this._clearTimeout('login');
 
     if (packet.data.toString() === '0') {
       this.emit('error', new Error('Invalid password.'));
@@ -128,6 +160,12 @@ export class BaseClient extends EventEmitter {
 
     this._state = ConnectionState.CONNECTED;
     this.emit('connected');
+
+    const interval = setInterval(() => {
+      this._heartbeat();
+    }, 1000);
+
+    this._timeouts.set('heartbeat', interval);
   }
 
   /**
@@ -166,6 +204,41 @@ export class BaseClient extends EventEmitter {
   }
 
   /**
+   * Sends a heartbeat packet to the RCON server.
+   */
+  private _heartbeat() {
+    const sendHeartbeat = () => {
+      const packet = Packet.create(PacketTypes.Command, null, this._getSequence());
+      this._send(packet.toBuffer());
+    };
+
+    // Send a heartbeat if we've not sent a command packet yet. This will happen
+    // right after the login is completed.
+    if (!this._lastCommandPacketSentAt) {
+      sendHeartbeat();
+      return;
+    }
+
+    const now = new Date();
+    const lastCommandDiff = now.getTime() - this._lastCommandPacketSentAt.getTime();
+
+    if (this._lastCommandPacketReceivedAt) {
+      const lastCommandReceivedDiff =
+        this._lastCommandPacketSentAt.getTime() - this._lastCommandPacketReceivedAt.getTime();
+
+      if (lastCommandReceivedDiff > 5_000) {
+        this.close('Connection timed out.');
+        return;
+      }
+    }
+
+    // Send a heartbeat every 20 seconds.
+    if (lastCommandDiff > 20_000) {
+      sendHeartbeat();
+    }
+  }
+
+  /**
    * Wrapper for sending a command to the RCON server.
    */
   private _send(data: Buffer) {
@@ -180,9 +253,11 @@ export class BaseClient extends EventEmitter {
   private _sendLogin() {
     const packet = LoginPacket.create(this._password);
 
-    this._loginTimeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
       this.close('Login timed out.');
     }, 5000);
+
+    this._timeouts.set('login', timeout);
 
     this._send(packet.toBuffer());
   }
