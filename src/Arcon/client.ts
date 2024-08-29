@@ -200,7 +200,7 @@ export class BaseClient extends EventEmitter {
   protected _handleMessagePacket(packet: Packet) {
     const response = Packet.create(PacketTypes.Message, null, packet.sequence);
 
-    this._socket?.send(response.toBuffer());
+    this._send(response.toBuffer());
   }
 
   /**
