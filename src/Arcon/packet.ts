@@ -140,7 +140,7 @@ export class PacketError {
 }
 
 /**
- * Creates a {@link LoginPacket} from a buffer.
+ * Creates a packet from a buffer.
  * @param msg The buffer to create a packet from.
  */
 export const createPacket = (msg: Buffer) => {

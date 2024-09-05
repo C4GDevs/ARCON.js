@@ -146,6 +146,7 @@ export class BaseClient extends EventEmitter {
   /**
    * Handles the response to a command packet.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   protected _handleCommandPacket(packet: Packet | CommandPacketPart) {
     this._lastCommandPacketReceivedAt = new Date();
   }
@@ -226,6 +227,7 @@ export class BaseClient extends EventEmitter {
     const now = new Date();
     const lastCommandDiff = now.getTime() - this._lastCommandPacketSentAt.getTime();
 
+    // If a command takes longer than 5 seconds to respond, connection is dead.
     if (this._lastCommandPacketReceivedAt) {
       const lastCommandReceivedDiff =
         this._lastCommandPacketSentAt.getTime() - this._lastCommandPacketReceivedAt.getTime();
@@ -245,7 +247,7 @@ export class BaseClient extends EventEmitter {
   /**
    * Wrapper for sending a command to the RCON server.
    */
-  private _send(data: Buffer) {
+  protected _send(data: Buffer) {
     if (this._socket) {
       this._socket.send(data);
     }
