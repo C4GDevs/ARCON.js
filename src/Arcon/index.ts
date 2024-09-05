@@ -23,7 +23,8 @@ const regexes = {
   playerDisconnected: /^Player #(\d+) (.+) disconnected$/,
   playerKicked: /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/,
   beLog: /^([a-zA-Z]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/,
-  playerList: /^(\d+)\s+([\d.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32})\((\?|OK)\)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
+  playerList:
+    /^(\d+)\s+([\d.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32}|-)(?:\((\?|OK)\)|)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
   playerMessage: /^\(([a-zA-Z]+)\) (.+)$/,
   adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/
 };
@@ -363,7 +364,10 @@ export class Arcon extends BaseClient {
 
       const existingPlayer = this._players.get(id);
 
-      if (this._connectingPlayers.has(id)) {
+      if (this._connectingPlayers.has(id)) continue;
+
+      if (guid === '-') {
+        this._connectingPlayers.set(id, { id, ip, name });
         continue;
       }
 
@@ -382,6 +386,8 @@ export class Arcon extends BaseClient {
           this.emit('playerUpdated', existingPlayer, changes);
         }
       } else {
+        if (this._ready) continue;
+
         const newPlayer = new Player(guid, id, ip, name, ping, lobby, verified);
 
         this._players.set(id, newPlayer);
