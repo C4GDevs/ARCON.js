@@ -220,7 +220,7 @@ export class Arcon extends BaseClient {
       return;
     }
 
-    const [, idStr, name, guid] = match;
+    const [, idStr, , guid] = match;
 
     const id = parseInt(idStr);
 
@@ -231,7 +231,7 @@ export class Arcon extends BaseClient {
       return;
     }
 
-    player = { ...player, guid, name };
+    player = { ...player, guid };
 
     this._connectingPlayers.set(id, player);
   }
