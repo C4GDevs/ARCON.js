@@ -50,6 +50,7 @@ export class Arcon extends BaseClient {
   private _playerUpdateRate: number;
   private _playerUpdateInterval: NodeJS.Timeout;
 
+  private _lastCommandSentAt: Date | null = null;
   private _commandQueueInterval: NodeJS.Timeout;
   private _commandQueue: string[] = [];
   private _packetParts: CommandPacketPart[] = [];
@@ -128,6 +129,9 @@ export class Arcon extends BaseClient {
     if (!commandPacket || !commandPacket.data || !commandPacket.data.length) return;
 
     this._waitingForCommandResponse = false;
+
+    this._lastCommandSentAt = null;
+    this._commandQueue.shift();
 
     this._packetParts = [];
 
@@ -458,13 +462,21 @@ export class Arcon extends BaseClient {
   }
 
   private _processCommandQueue() {
-    if (this._waitingForCommandResponse) return;
+    if (this._waitingForCommandResponse) {
+      if (this._lastCommandSentAt && Date.now() - this._lastCommandSentAt.getTime() > 5000) {
+        this._packetParts = [];
+        this._waitingForCommandResponse = false;
+      }
 
-    const command = this._commandQueue.shift();
+      return;
+    }
+
+    const command = this._commandQueue.at(0);
 
     if (!command) return;
 
     this._waitingForCommandResponse = true;
+    this._lastCommandSentAt = new Date();
 
     const packet = Packet.create(PacketTypes.Command, Buffer.from(command), this._getSequence());
 
