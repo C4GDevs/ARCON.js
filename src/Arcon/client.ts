@@ -1,6 +1,7 @@
 import { Socket, createSocket } from 'dgram';
 import EventEmitter from 'events';
 import { CommandPacketPart, LoginPacket, Packet, PacketError, PacketTypes, createPacket } from './packet';
+import ArconError from './ArconError';
 
 export enum ConnectionState {
   CLOSED,
@@ -27,7 +28,7 @@ export interface ClientOptions {
 export declare interface BaseClient {
   on(event: 'connected', listener: () => void): this;
   on(event: 'disconnected', listener: (reason: string, abortReconnect: boolean) => void): this;
-  on(event: 'error', listener: (error: Error) => void): this;
+  on(event: 'error', listener: (error: Error | PacketError | ArconError) => void): this;
 }
 
 /**
@@ -158,7 +159,7 @@ export class BaseClient extends EventEmitter {
     this._clearTimeout('login');
 
     if (packet.data.toString() === '0') {
-      this.emit('error', new Error('Invalid password.'));
+      this.emit('error', new ArconError('Invalid password.'));
       this.close('Invalid password.', true);
       return;
     }
