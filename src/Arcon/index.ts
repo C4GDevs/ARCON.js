@@ -103,7 +103,8 @@ export class Arcon extends BaseClient {
 
   private static _getMessageType(message: string) {
     for (const [type, regex] of Object.entries(regexes)) {
-      if (regex.test(message)) {
+      const re = new RegExp(regex);
+      if (re.test(message)) {
         return type;
       }
     }
@@ -198,7 +199,9 @@ export class Arcon extends BaseClient {
 
   // Initial connection of player
   private _playerConnected(data: string) {
-    const match = data.match(regexes.playerConnected);
+    const re = new RegExp(regexes.playerConnected);
+
+    const match = data.match(re);
 
     if (!match) {
       this.emit('error', new ArconError(`Could not parse 'playerConnected' event: ${data}`));
@@ -214,7 +217,8 @@ export class Arcon extends BaseClient {
 
   // First time player GUID is available
   private _playerGuidCalculated(data: string) {
-    const match = data.match(regexes.playerGuidCalculated);
+    const re = new RegExp(regexes.playerGuidCalculated);
+    const match = data.match(re);
 
     if (!match) {
       this.emit('error', new ArconError("Could not parse 'playerGuidCalculated' event", data));
@@ -239,7 +243,8 @@ export class Arcon extends BaseClient {
 
   // First time player GUID is available and reliable
   private _playerGuidVerified(data: string) {
-    const match = data.match(regexes.playerGuidVerified);
+    const re = new RegExp(regexes.playerGuidVerified);
+    const match = data.match(re);
 
     if (!match) {
       this.emit('error', new ArconError("Could not parse 'playerGuidVerified' event", data));
@@ -268,7 +273,8 @@ export class Arcon extends BaseClient {
 
   // Player disconnected
   private _playerDisconnected(data: string) {
-    const match = data.match(regexes.playerDisconnected);
+    const re = new RegExp(regexes.playerDisconnected);
+    const match = data.match(re);
 
     if (!match) {
       this.emit('error', new ArconError("Could not parse 'playerDisconnected' event", data));
@@ -298,7 +304,8 @@ export class Arcon extends BaseClient {
 
   // Player was kicked
   private _playerKicked(data: string) {
-    const match = data.match(regexes.playerKicked);
+    const re = new RegExp(regexes.playerKicked);
+    const match = data.match(re);
 
     if (!match) {
       this.emit('error', new ArconError("Could not parse 'playerKicked' event", data));
@@ -323,7 +330,8 @@ export class Arcon extends BaseClient {
 
   // BattlEye log message
   private _beLog(data: string) {
-    const match = data.match(regexes.beLog);
+    const re = new RegExp(regexes.beLog);
+    const match = data.match(re);
 
     if (!match) {
       this.emit('error', new ArconError("Could not parse 'beLog' event", data));
@@ -352,7 +360,8 @@ export class Arcon extends BaseClient {
   }
 
   private _playerList(data: string) {
-    const players = data.matchAll(regexes.playerList);
+    const re = new RegExp(regexes.playerList, 'gm');
+    const players = [...data.matchAll(re)];
 
     for (const player of players) {
       const [, idStr, ip, pingStr, guid, verifiedStr, name, lobbyStr] = player;
@@ -403,7 +412,8 @@ export class Arcon extends BaseClient {
 
   // Player sends a message
   private _playerMessage(data: string) {
-    const match = data.match(regexes.playerMessage);
+    const re = new RegExp(regexes.playerMessage);
+    const match = data.match(re);
 
     if (!match) {
       this.emit('error', new ArconError("Could not parse 'playerMessage' event", data));
@@ -432,7 +442,8 @@ export class Arcon extends BaseClient {
 
   // RCon admin sends a message
   private _adminMessage(data: string) {
-    const match = data.match(regexes.adminMessage);
+    const re = new RegExp(regexes.adminMessage);
+    const match = data.match(re);
 
     if (!match) {
       this.emit('error', new ArconError("Could not parse 'adminMessage' event", data));
