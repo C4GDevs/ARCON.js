@@ -22,7 +22,7 @@ const regexes = {
   playerGuidVerified: /^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/,
   playerDisconnected: /^Player #(\d+) (.+) disconnected$/,
   playerKicked: /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/,
-  beLog: /^([a-zA-Z]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/,
+  beLog: /^([a-zA-Z ]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/s,
   playerList:
     /^(\d+)\s+([\d.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32}|-)(?:\((\?|OK)\)|)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
   playerMessage: /^\(([a-zA-Z]+)\) (.+)$/,
@@ -330,7 +330,7 @@ export class Arcon extends BaseClient {
 
   // BattlEye log message
   private _beLog(data: string) {
-    const re = new RegExp(regexes.beLog);
+    const re = new RegExp(regexes.beLog, 's');
     const match = data.match(re);
 
     if (!match) {
