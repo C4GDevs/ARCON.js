@@ -323,6 +323,13 @@ export class Arcon extends BaseClient {
     const player = this._players.get(id);
 
     if (!player) {
+      const connectingPlayer = this._connectingPlayers.get(id);
+
+      if (connectingPlayer) {
+        this._connectingPlayers.delete(id);
+        return;
+      }
+
       this.emit('error', new ArconError(`playerKicked: Player #${id} not found.`, data));
       return;
     }
