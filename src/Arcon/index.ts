@@ -67,7 +67,7 @@ export class Arcon extends BaseClient {
       }, 500);
 
       this._playerUpdateInterval = setInterval(() => {
-        this.sendCommand('players');
+        if (!this._commandQueue.includes('players')) this.sendCommand('players');
       }, this._playerUpdateRate);
 
       this.sendCommand('players');
