@@ -112,6 +112,8 @@ export class Arcon extends BaseClient {
   }
 
   protected override _handleCommandPacket(packet: Packet | CommandPacketPart) {
+    super._handleCommandPacket(packet);
+
     let commandPacket: Packet | null = null;
 
     if (packet instanceof CommandPacketPart) {
