@@ -228,12 +228,12 @@ export class BaseClient extends EventEmitter {
     const now = new Date();
     const lastCommandDiff = now.getTime() - this._lastCommandPacketSentAt.getTime();
 
-    // If a command takes longer than 5 seconds to respond, connection is dead.
+    // If a command takes longer than 15 seconds to respond, connection is dead.
     if (this._lastCommandPacketReceivedAt) {
       const lastCommandReceivedDiff =
         this._lastCommandPacketSentAt.getTime() - this._lastCommandPacketReceivedAt.getTime();
 
-      if (lastCommandReceivedDiff > 5_000) {
+      if (lastCommandReceivedDiff > 15_000) {
         this.close('Connection timed out.');
         return;
       }
