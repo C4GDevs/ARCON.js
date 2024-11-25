@@ -86,7 +86,7 @@ export class BaseClient extends EventEmitter {
    * Closes the connection to the RCON server.
    * @returns Whether the connection was successfully closed.
    */
-  public close(reason?: string, abortReconnect: boolean = !this._autoReconnect): boolean {
+  public close(reason?: string, abortReconnect = !this._autoReconnect): boolean {
     // Capture state and prevent further close attempts
     const state = this._state;
     this._state = ConnectionState.CLOSING;
