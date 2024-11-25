@@ -21,12 +21,13 @@ const regexes = {
   playerGuidCalculated: /^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/,
   playerGuidVerified: /^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/,
   playerDisconnected: /^Player #(\d+) (.+) disconnected$/,
-  playerKicked: /^Player #(\d+) .+ \([a-z0-9]{32}\) has been kicked by BattlEye: (.+)$/,
+  playerKicked: /^Player #(\d+) .+ \((?:[a-z0-9]{32}|-)\) has been kicked by BattlEye: (.+)$/,
   beLog: /^([a-zA-Z ]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/s,
   playerList:
     /^(\d+)\s+([\d.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32}|-)(?:\((\?|OK)\)|)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
   playerMessage: /^\(([a-zA-Z]+)\) (.+)$/,
-  adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/
+  adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/,
+  banCheckTimeout: /Ban check timed out, no response from BE Master/
 };
 
 export declare interface Arcon {
