@@ -29,6 +29,7 @@ const regexes = {
   banCheckTimeout: /Ban check timed out, no response from BE Master/,
   connectedToBeMaster: /Connected to BE Master/,
   unknownCommand: /Unknown command/,
+  filterKickDisabled: /Warning: Disabled kicking for (.+) scans. (.+)/i,
 
   // Command responses
   playerList:
@@ -191,7 +192,11 @@ export class Arcon extends BaseClient {
     const type = Arcon._getMessageType(data);
 
     if (!type) {
-      this.emit('error', new Error(`Unknown message type: ${data}`));
+      // Only error on non-empty error messages
+      if (data) {
+        this.emit('error', new Error(`Unknown message type: ${data}`));
+      }
+
       return;
     }
 
