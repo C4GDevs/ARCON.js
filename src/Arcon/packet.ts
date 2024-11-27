@@ -3,7 +3,7 @@ import crc32 from 'buffer-crc32';
 export enum PacketTypes {
   Login = 0x00,
   Command = 0x01,
-  Message = 0x02
+  Message = 0x02,
 }
 
 /**
@@ -166,7 +166,9 @@ export const createPacket = (msg: Buffer) => {
 
   const dataHasHeader = packetData.length && packetData[0] === 0x00;
 
-  if (type === PacketTypes.Message || !dataHasHeader) return new Packet(checksum, type, sequence, packetData);
+  if (type === PacketTypes.Message || !dataHasHeader) {
+    return new Packet(checksum, type, sequence, packetData);
+  }
 
   const totalPackets = packetData[1];
   const packetIndex = packetData[2];

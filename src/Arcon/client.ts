@@ -7,7 +7,7 @@ export enum ConnectionState {
   CLOSED,
   CLOSING,
   CONNECTING,
-  CONNECTED
+  CONNECTED,
 }
 
 export interface ClientOptions {
@@ -43,6 +43,7 @@ export class BaseClient extends EventEmitter {
   private _autoReconnect: boolean;
 
   private _sequence = 0;
+  private _sequenceCache = new Set();
 
   private _lastCommandPacketSentAt: Date | null = null;
   private _lastCommandPacketReceivedAt: Date | null = null;
@@ -102,6 +103,7 @@ export class BaseClient extends EventEmitter {
 
     // Reset sequence and timers
     this._sequence = 0;
+    this._sequenceCache.clear();
     this._lastCommandPacketSentAt = null;
     this._lastCommandPacketReceivedAt = null;
 
@@ -118,6 +120,29 @@ export class BaseClient extends EventEmitter {
     }
 
     return true;
+  }
+
+  /**
+   * Mark server message sequence id as handled.
+   */
+  public handleSequenceId(id: number) {
+    this._sequenceCache.add(id);
+
+    /**
+     * https://www.battleye.com/downloads/BERConProtocol.txt
+     * BE RCon tries to send a server message packet 5 times for 10 seconds
+     * So we store the sequence ID for 15 seconds to cover the retry window
+     */
+    setTimeout(() => {
+      this._sequenceCache.delete(id);
+    }, 15_000);
+  }
+
+  /**
+   * Check if server message sequence id has already been handled.
+   */
+  public hasSeenSequenceId(id: number) {
+    return this._sequenceCache.has(id);
   }
 
   /**
@@ -148,7 +173,7 @@ export class BaseClient extends EventEmitter {
    * Handles the response to a command packet.
    */
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  protected _handleCommandPacket(packet: Packet | CommandPacketPart) {
+  protected _handleCommandPacket(_packet: Packet | CommandPacketPart) {
     this._lastCommandPacketReceivedAt = new Date();
   }
 

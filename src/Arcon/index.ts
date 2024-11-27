@@ -17,17 +17,23 @@ export interface BeLog {
 }
 
 const regexes = {
+  // Server messages
   playerConnected: /^Player #(\d+) (.+) \(([\d.]+):\d+\) connected$/,
   playerGuidCalculated: /^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/,
-  playerGuidVerified: /^Verified GUID \([a-z0-9]{32}\) of player #(\d+) .+$/,
+  playerGuidVerified: /^Verified GUID \(([a-z0-9]{32})\) of player #(\d+) .+$/,
   playerDisconnected: /^Player #(\d+) (.+) disconnected$/,
   playerKicked: /^Player #(\d+) .+ \((?:[a-z0-9]{32}|-)\) has been kicked by BattlEye: (.+)$/,
   beLog: /^([a-zA-Z ]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/s,
-  playerList:
-    /^(\d+)\s+([\d.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32}|-)(?:\((\?|OK)\)|)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
   playerMessage: /^\(([a-zA-Z]+)\) (.+)$/,
   adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/,
-  banCheckTimeout: /Ban check timed out, no response from BE Master/
+  banCheckTimeout: /Ban check timed out, no response from BE Master/,
+  connectedToBeMaster: /Connected to BE Master/,
+  unknownCommand: /Unknown command/,
+
+  // Command responses
+  playerList:
+    /^(\d+)\s+([\d.]+):\d+\s+([-0-9]+)\s+((?:[a-z0-9]){32}|-)(?:\((\?|OK)\)|)\s+(.+?)(?:(?: \((Lobby)\)$|$))/gm,
+  missions: /(.+\.pbo$)/gm,
 };
 
 export declare interface Arcon {
@@ -35,6 +41,7 @@ export declare interface Arcon {
   on(event: 'disconnected', listener: (reason: string, abortReconnect: boolean) => void): this;
   on(event: 'error', listener: (error: Error) => void): this;
   on(event: 'players', listener: (players: Player[]) => void): this;
+  on(event: 'missions', listener: (missions: string[]) => void): this;
   on(event: 'playerConnected', listener: (player: Player) => void): this;
   on(event: 'playerDisconnected', listener: (player: Player, reason: string) => void): this;
   on(event: 'playerUpdated', listener: (player: Player, changes: [boolean, boolean, boolean]) => void): this;
@@ -47,7 +54,7 @@ export class Arcon extends BaseClient {
   private _ready = false;
 
   private _players: Map<number, Player> = new Map();
-  private _connectingPlayers: Map<number, Partial<Player>> = new Map();
+  private _connectingPlayers: Map<number, Pick<Player, 'id' | 'ip' | 'name'> & { guid?: string }> = new Map();
   private _playerUpdateRate: number;
   private _playerUpdateInterval: NodeJS.Timeout;
 
@@ -118,16 +125,27 @@ export class Arcon extends BaseClient {
     let commandPacket: Packet | null = null;
 
     if (packet instanceof CommandPacketPart) {
+      const duplicatePart = this._packetParts.some(
+        (part) => packet.sequence === part.sequence && packet.packetIndex === part.packetIndex,
+      );
+
+      if (duplicatePart) return;
+
       this._packetParts.push(packet);
 
-      if (packet.totalPackets === this._packetParts.length) {
-        const sortedParts = this._packetParts.sort((a, b) => a.packetIndex - b.packetIndex);
+      // Get parts for current sequence
+      const parts = this._packetParts.filter((part) => packet.sequence === part.sequence);
+
+      if (packet.totalPackets === parts.length) {
+        const sortedParts = parts.sort((a, b) => a.packetIndex - b.packetIndex);
 
         const data = Buffer.concat(sortedParts.map((part) => part.data));
 
         commandPacket = Packet.create(PacketTypes.Command, data, packet.sequence);
       }
-    } else commandPacket = packet;
+    } else {
+      commandPacket = packet;
+    }
 
     if (!commandPacket || !commandPacket.data || !commandPacket.data.length) return;
 
@@ -138,22 +156,30 @@ export class Arcon extends BaseClient {
 
     this._packetParts = [];
 
-    const type = Arcon._getMessageType(commandPacket.data.toString());
+    const commandPacketData = commandPacket.data.toString();
 
-    if (!type) {
-      this.emit('error', new Error(`Unknown command type: ${commandPacket.data}`));
+    // Early check for player list
+    if (commandPacketData.startsWith('Players on server:')) {
+      this._playerList(commandPacketData);
       return;
     }
 
-    switch (type) {
-      case 'playerList':
-        this._playerList(commandPacket.data.toString());
-        break;
+    if (commandPacketData.startsWith('Missions on server:')) {
+      this._missions(commandPacketData);
+      return;
     }
+
+    this.emit('error', new Error(`Unsupported command type: ${commandPacket.data}`));
   }
 
   override _handleMessagePacket(packet: Packet) {
     super._handleMessagePacket(packet);
+
+    if (super.hasSeenSequenceId(packet.sequence)) {
+      return;
+    }
+
+    super.handleSequenceId(packet.sequence);
 
     if (!packet.data) return;
 
@@ -219,7 +245,7 @@ export class Arcon extends BaseClient {
 
     const id = parseInt(idStr);
 
-    this._connectingPlayers.set(id, { name, ip, id });
+    this._connectingPlayers.set(id, { id, ip, name });
   }
 
   // First time player GUID is available
@@ -236,16 +262,23 @@ export class Arcon extends BaseClient {
 
     const id = parseInt(idStr);
 
-    let player = this._connectingPlayers.get(id);
+    const connectingPlayer = this._connectingPlayers.get(id);
 
-    if (!player) {
+    // Race condition check
+    const alreadyConnected = this._players.get(id);
+
+    if (alreadyConnected && alreadyConnected.guid === guid) {
+      this._connectingPlayers.delete(id);
+      return;
+    }
+
+    if (!connectingPlayer) {
       this.emit('error', new ArconError(`playerGuidCalculated: Player #${id} not found.`, data));
       return;
     }
 
-    player = { ...player, guid };
-
-    this._connectingPlayers.set(id, player);
+    // Extend object with guid and update map
+    this._connectingPlayers.set(id, { ...connectingPlayer, guid });
   }
 
   // First time player GUID is available and reliable
@@ -258,24 +291,43 @@ export class Arcon extends BaseClient {
       return;
     }
 
-    const [, idStr] = match;
+    const [, guid, idStr] = match;
 
     const id = parseInt(idStr);
 
-    const player = this._connectingPlayers.get(id);
+    const connectingPlayer = this._connectingPlayers.get(id);
+    const player = this._players.get(id);
 
-    if (!player) {
+    if (!connectingPlayer && !player) {
       this.emit('error', new ArconError(`playerGuidVerified: Player #${id} not found.`, data));
       return;
     }
 
-    this._connectingPlayers.delete(id);
+    // If connecting, always overwrite
+    if (connectingPlayer) {
+      const newPlayer = new Player(
+        guid,
+        connectingPlayer.id,
+        connectingPlayer.ip,
+        connectingPlayer.name,
+        0,
+        true,
+        true,
+      );
 
-    const newPlayer = new Player(player.guid!, player.id!, player.ip!, player.name!, 0, true, true);
+      this._connectingPlayers.delete(id);
+      this._players.set(newPlayer.id, newPlayer);
+      this.emit('playerConnected', newPlayer);
 
-    this._players.set(newPlayer.id, newPlayer);
+      return;
+    }
 
-    this.emit('playerConnected', newPlayer);
+    // If connected, but unverified
+    if (player && player.guid === guid && !player.verified) {
+      player.verified = true;
+
+      this.emit('playerConnected', player);
+    }
   }
 
   // Player disconnected
@@ -367,7 +419,7 @@ export class Arcon extends BaseClient {
       filter,
       log,
       guid,
-      player
+      player,
     };
 
     this.emit('beLog', beLog);
@@ -386,19 +438,30 @@ export class Arcon extends BaseClient {
       const lobby = lobbyStr === 'Lobby';
 
       const existingPlayer = this._players.get(id);
+      const connectingPlayer = this._connectingPlayers.get(id);
 
-      if (this._connectingPlayers.has(id)) continue;
+      // If verified, add player early
+      if (!existingPlayer && verified) {
+        const newPlayer = new Player(guid, id, ip, name, ping, lobby, verified);
 
-      if (guid === '-') {
-        this._connectingPlayers.set(id, { id, ip, name });
+        this._players.set(id, newPlayer);
+        this._connectingPlayers.delete(id);
+
         continue;
       }
 
+      // If unverified and not connecting, add to connecting
+      if (guid === '-' && !connectingPlayer) {
+        this._connectingPlayers.set(id, { id, ip, name, guid });
+        continue;
+      }
+
+      // If existing, check for changes
       if (existingPlayer) {
         const changes = [
           existingPlayer.ping !== ping,
           existingPlayer.lobby !== lobby,
-          existingPlayer.verified !== verified
+          existingPlayer.verified !== verified,
         ];
 
         if (changes.some((c) => c)) {
@@ -408,20 +471,22 @@ export class Arcon extends BaseClient {
 
           this.emit('playerUpdated', existingPlayer, changes);
         }
-      } else {
-        if (this._ready) continue;
-
-        const newPlayer = new Player(guid, id, ip, name, ping, lobby, verified);
-
-        this._players.set(id, newPlayer);
       }
     }
 
     this.emit('players', [...this._players.values()]);
 
+    // Arcon is only ready for use after first player list fetch
     if (!this._ready) {
       this._ready = true;
     }
+  }
+
+  private _missions(data: string) {
+    const re = new RegExp(regexes.missions, 'gm');
+    const missions = [...data.matchAll(re)].map((m) => m[1]);
+
+    this.emit('missions', missions);
   }
 
   // Player sends a message
