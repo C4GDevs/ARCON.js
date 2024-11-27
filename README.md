@@ -93,3 +93,5 @@ connection.on('adminMessage', (id: number, channel: string, message: string) => 
 
 connection.connect();
 ```
+
+#test
