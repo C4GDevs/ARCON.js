@@ -29,8 +29,8 @@ describe('Packet', () => {
         0x74,
         0x65,
         0x73,
-        0x74 // test
-      ])
+        0x74, // test
+      ]),
     );
 
     expect(packet).to.be.instanceOf(PacketError);

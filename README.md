@@ -26,7 +26,7 @@ import { Arcon } from 'arcon.js';
 const connection = new Arcon({
   host: '127.0.0.1',
   port: 2312,
-  password: '12345'
+  password: '12345',
 });
 
 connection.connect();
@@ -43,7 +43,7 @@ import { Arcon, Player, BeLog } from 'arcon.js';
 const connection = new Arcon({
   host: '127.0.0.1',
   port: 2312,
-  password: '12345'
+  password: '12345',
 });
 
 connection.on('connected', () => {
@@ -76,7 +76,7 @@ connection.on(
   'playerUpdated',
   (player: Player, [pingUpdate, verifiedUpdate, lobbyUpdate]: [boolean, boolean, boolean]) => {
     if (pingUpdate) console.log(player.ping);
-  }
+  },
 );
 
 connection.on('beLog', (log: BeLog) => {
