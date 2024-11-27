@@ -1,4 +1,2 @@
-import Connection from './client/Connection';
-export { default as Packet, MessageTypes } from './client/Packet';
-
-export default Connection;
+export { Arcon, BeLog } from './Arcon';
+export { Player } from './Arcon/player';

@@ -1,1 +1,7 @@
 node_modules
+/Arcon/
+index.js
+index.d.ts
+tests/live.ts
+/.vscode
+log*
