@@ -27,7 +27,10 @@ const regexes = {
   playerMessage: /^\(([a-zA-Z]+)\) (.+)$/,
   adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/,
   banCheckTimeout: /Ban check timed out, no response from BE Master/,
+  masterQueryTimeout: /Master query timed out, no response from BE Master/,
   connectedToBeMaster: /Connected to BE Master/,
+  disconnectedFromBeMaster: /Disconnected from BE Master/,
+  beMasterFailedToReceive: /Failed to receive from BE Master \(.+\)/,
   unknownCommand: /Unknown command/,
   filterKickDisabled: /Warning: Disabled kicking for (.+) scans. (.+)/i,
 
