@@ -18,21 +18,23 @@ export interface BeLog {
 
 const regexes = {
   // Server messages
-  playerConnected: /^Player #(\d+) (.+) \(([\d.]+):\d+\) connected$/,
-  playerGuidCalculated: /^Player #(\d+) (.+) BE GUID: ([a-z0-9]{32})$/,
-  playerGuidVerified: /^Verified GUID \(([a-z0-9]{32})\) of player #(\d+) .+$/,
-  playerDisconnected: /^Player #(\d+) (.+) disconnected$/,
-  playerKicked: /^Player #(\d+) .+ \((?:[a-z0-9]{32}|-)\) has been kicked by BattlEye: (.+)$/,
-  beLog: /^([a-zA-Z ]+) Log: #(\d+) .+ \(([a-z0-9]{32})\) - #(\d+) (.+)$/s,
+  playerConnected: /^Player #(\d+) (.*) \(([\d.]+):\d+\) connected$/,
+  playerGuidCalculated: /^Player #(\d+) (.*) BE GUID: ([a-z0-9]{32})$/,
+  playerGuidVerified: /^Verified GUID \(([a-z0-9]{32})\) of player #(\d+) (.*)$/,
+  playerDisconnected: /^Player #(\d+) (.*) disconnected$/,
+  playerKicked: /^Player #(\d+) (.*) \((?:[a-z0-9]{32}|-)\) has been kicked by BattlEye: (.+)$/,
+  beLog: /^([a-zA-Z ]+) Log: #(\d+) (.*) \(([a-z0-9]{32})\) - #(\d+) (.+)$/s,
   playerMessage: /^\(([a-zA-Z]+)\) (.+)$/,
   adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/,
   banCheckTimeout: /Ban check timed out, no response from BE Master/,
   masterQueryTimeout: /Master query timed out, no response from BE Master/,
   connectedToBeMaster: /Connected to BE Master/,
   disconnectedFromBeMaster: /Disconnected from BE Master/,
+  connectionFailedBeMaster: /Could not connect to BE Master/,
   beMasterFailedToReceive: /Failed to receive from BE Master \(.+\)/,
   unknownCommand: /Unknown command/,
   filterKickDisabled: /Warning: Disabled kicking for (.+) scans. (.+)/i,
+  eventLogError: /Failed to open event log file/,
 
   // Command responses
   playerList:
@@ -114,11 +116,11 @@ export class Arcon extends BaseClient {
     this._commandQueue.push(command);
   }
 
-  private static _getMessageType(message: string) {
+  private static _getMessageType(message: string): keyof typeof regexes | undefined {
     for (const [type, regex] of Object.entries(regexes)) {
       const re = new RegExp(regex);
       if (re.test(message)) {
-        return type;
+        return type as keyof typeof regexes;
       }
     }
   }
@@ -235,6 +237,17 @@ export class Arcon extends BaseClient {
       case 'adminMessage':
         this._adminMessage(data);
         break;
+
+      // Emit error event for generic RCON errors
+      case 'masterQueryTimeout':
+      case 'banCheckTimeout':
+      case 'beMasterFailedToReceive':
+      case 'connectionFailedBeMaster':
+      case 'disconnectedFromBeMaster':
+      case 'eventLogError':
+      case 'filterKickDisabled':
+        this.emit('error', new ArconError(`RCON error: ${data}`));
+        break;
     }
   }
 
@@ -281,7 +294,8 @@ export class Arcon extends BaseClient {
     }
 
     if (!connectingPlayer) {
-      this.emit('error', new ArconError(`playerGuidCalculated: Player #${id} not found.`, data));
+      // Will be picked up by playerlist
+      // this.emit('error', new ArconError(`playerGuidCalculated: Player #${id} not found.`, data));
       return;
     }
 
@@ -307,7 +321,8 @@ export class Arcon extends BaseClient {
     const player = this._players.get(id);
 
     if (!connectingPlayer && !player) {
-      this.emit('error', new ArconError(`playerGuidVerified: Player #${id} not found.`, data));
+      // Will be picked up by playerlist
+      // this.emit('error', new ArconError(`playerGuidVerified: Player #${id} not found.`, data));
       return;
     }
 
@@ -340,6 +355,9 @@ export class Arcon extends BaseClient {
 
   // Player disconnected
   private _playerDisconnected(data: string) {
+    // Ignore disconnects when Arcon isn't ready, as we don't have any player identifiers to match on yet
+    if (!this._ready) return;
+
     const re = new RegExp(regexes.playerDisconnected);
     const match = data.match(re);
 
@@ -379,7 +397,8 @@ export class Arcon extends BaseClient {
       return;
     }
 
-    const [, idStr, reason] = match;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [, idStr, _name, reason] = match;
 
     const id = parseInt(idStr);
 
@@ -412,7 +431,8 @@ export class Arcon extends BaseClient {
       return;
     }
 
-    const [, type, idStr, guid, filterStr, log] = match;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [, type, idStr, _name, guid, filterStr, log] = match;
 
     const id = parseInt(idStr);
 
@@ -511,16 +531,37 @@ export class Arcon extends BaseClient {
 
     // Find all players that match the start of the message
     // and sort them by name length, longest name is best match.
-    const matchingNames = [...this._players.values()]
+    const machingPlayers = [...this._players.values()]
       .filter((p) => message.startsWith(p.name))
       .sort((a, b) => b.name.length - a.name.length);
 
-    if (matchingNames.length === 0) {
+    // Check for unverified connecting players as a backup
+    if (machingPlayers.length === 0) {
+      const [connectingMatch] = [...this._connectingPlayers.values()]
+        .filter((p) => !!p.guid && message.startsWith(p.name))
+        .sort((a, b) => b.name.length - a.name.length);
+
+      if (connectingMatch && connectingMatch.guid) {
+        const unverifiedPlayer = new Player(
+          connectingMatch.guid,
+          connectingMatch.id,
+          connectingMatch.ip,
+          connectingMatch.name,
+          0,
+          true,
+          false,
+        );
+
+        machingPlayers.push(unverifiedPlayer);
+      }
+    }
+
+    if (machingPlayers.length === 0) {
       this.emit('error', new ArconError(`playerMessage: No player found for message: ${message}`, data));
       return;
     }
 
-    const player = matchingNames[0];
+    const player = machingPlayers[0];
 
     const text = message.slice(player.name.length + 2);
 
