@@ -245,7 +245,6 @@ export class Arcon extends BaseClient {
       case 'connectionFailedBeMaster':
       case 'disconnectedFromBeMaster':
       case 'eventLogError':
-      case 'filterKickDisabled':
         this.emit('error', new ArconError(`RCON error: ${data}`));
         break;
     }
