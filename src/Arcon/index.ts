@@ -69,6 +69,7 @@ export class Arcon extends BaseClient {
   private _commandQueue: string[] = [];
   private _packetParts: CommandPacketPart[] = [];
   private _waitingForCommandResponse = false;
+  private _pendingCommandPacket: Packet | null = null;
 
   constructor(options: ArconOptions) {
     super(options);
@@ -94,6 +95,7 @@ export class Arcon extends BaseClient {
     this._packetParts = [];
     this._commandQueue = [];
     this._waitingForCommandResponse = false;
+    this._pendingCommandPacket = null;
     this._ready = false;
 
     clearInterval(this._playerUpdateInterval);
@@ -153,14 +155,22 @@ export class Arcon extends BaseClient {
       commandPacket = packet;
     }
 
-    if (!commandPacket || !commandPacket.data || !commandPacket.data.length) return;
+    // Invalid command
+    if (!commandPacket) return;
 
+    // Heartbeat
+    if (this._pendingCommandPacket?.sequence !== commandPacket.sequence) return;
+
+    // Clear command
+    this._pendingCommandPacket = null;
     this._waitingForCommandResponse = false;
-
     this._lastCommandSentAt = null;
     this._commandQueue.shift();
 
     this._packetParts = [];
+
+    // No data
+    if (!commandPacket.data || commandPacket.data.length === 0) return;
 
     const commandPacketData = commandPacket.data.toString();
 
@@ -354,9 +364,6 @@ export class Arcon extends BaseClient {
 
   // Player disconnected
   private _playerDisconnected(data: string) {
-    // Ignore disconnects when Arcon isn't ready, as we don't have any player identifiers to match on yet
-    if (!this._ready) return;
-
     const re = new RegExp(regexes.playerDisconnected);
     const match = data.match(re);
 
@@ -368,6 +375,14 @@ export class Arcon extends BaseClient {
     const [, idStr] = match;
 
     const id = parseInt(idStr);
+
+    // Ignore disconnects when Arcon isn't ready, as we don't have any player identifiers to match on yet
+    if (!this._ready) {
+      this._players.delete(id);
+      this._connectingPlayers.delete(id);
+
+      return;
+    }
 
     const player = this._players.get(id);
 
@@ -602,6 +617,7 @@ export class Arcon extends BaseClient {
     this._lastCommandSentAt = new Date();
 
     const packet = Packet.create(PacketTypes.Command, Buffer.from(command), this._getSequence());
+    this._pendingCommandPacket = packet;
 
     this._send(packet.toBuffer());
   }
