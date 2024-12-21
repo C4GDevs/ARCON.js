@@ -46,6 +46,7 @@ export declare interface Arcon {
   on(event: 'connected', listener: () => void): this;
   on(event: 'disconnected', listener: (reason: string, abortReconnect: boolean) => void): this;
   on(event: 'error', listener: (error: Error) => void): this;
+  on(event: 'beError', listener: (error: Error) => void): this;
   on(event: 'players', listener: (players: Player[]) => void): this;
   on(event: 'missions', listener: (missions: string[]) => void): this;
   on(event: 'playerConnected', listener: (player: Player) => void): this;
@@ -248,14 +249,16 @@ export class Arcon extends BaseClient {
         this._adminMessage(data);
         break;
 
-      // Emit error event for generic RCON errors
+      case 'eventLogError':
+        this.emit('error', new ArconError(data));
+        break;
+
       case 'masterQueryTimeout':
       case 'banCheckTimeout':
       case 'beMasterFailedToReceive':
       case 'connectionFailedBeMaster':
       case 'disconnectedFromBeMaster':
-      case 'eventLogError':
-        this.emit('error', new ArconError(`RCON error: ${data}`));
+        this.emit('beError', new ArconError(`BattlEye error: ${data}`));
         break;
     }
   }
