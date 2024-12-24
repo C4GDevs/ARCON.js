@@ -183,7 +183,7 @@ export class BaseClient extends EventEmitter {
   private _handleLoginPacket(packet: LoginPacket) {
     this._clearTimeout('login');
 
-    if (packet.data.toString() === '0') {
+    if (packet.data.toString('hex') === '00') {
       this.emit('error', new ArconError('Invalid password.'));
       this.close('Invalid password.', true);
       return;
