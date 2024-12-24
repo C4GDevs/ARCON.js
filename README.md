@@ -58,6 +58,10 @@ connection.on('error', (error: Error) => {
   console.error(error);
 });
 
+connection.on('beError', (error: Error) => {
+  console.error(error);
+});
+
 connection.on('players', (players: Player[]) => {
   console.log(players);
 });
