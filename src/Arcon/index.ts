@@ -55,6 +55,7 @@ export declare interface Arcon {
   on(event: 'beLog', listener: (log: BeLog) => void): this;
   on(event: 'playerMessage', listener: (player: Player, channel: string, message: string) => void): this;
   on(event: 'adminMessage', listener: (id: number, channel: string, message: string) => void): this;
+  on(event: 'console', listener: (data: string) => void): this;
 }
 
 export class Arcon extends BaseClient {
@@ -201,6 +202,8 @@ export class Arcon extends BaseClient {
     if (!packet.data) return;
 
     const data = packet.data.toString();
+
+    this.emit('console', data);
 
     // Ignore rcon admins logging in
     if ((data.startsWith('RCon admin') && data.endsWith('logged in')) || !this._ready) return;
@@ -390,12 +393,7 @@ export class Arcon extends BaseClient {
     const player = this._players.get(id);
 
     if (!player) {
-      if (this._connectingPlayers.has(id)) {
-        this._connectingPlayers.delete(id);
-        return;
-      }
-
-      this.emit('error', new ArconError(`playerDisconnected: Player #${id} not found.`, data));
+      this._connectingPlayers.delete(id);
       return;
     }
 
@@ -486,7 +484,7 @@ export class Arcon extends BaseClient {
       const connectingPlayer = this._connectingPlayers.get(id);
 
       // If verified, add player early
-      if (!existingPlayer && verified) {
+      if (!existingPlayer && verified && guid !== '-') {
         const newPlayer = new Player(guid, id, ip, name, ping, lobby, verified);
 
         this._players.set(id, newPlayer);
@@ -496,7 +494,7 @@ export class Arcon extends BaseClient {
       }
 
       // If unverified and not connecting, add to connecting
-      if (guid === '-' && !connectingPlayer) {
+      if (!connectingPlayer && !verified && guid !== '-') {
         this._connectingPlayers.set(id, { id, ip, name, guid });
         continue;
       }
@@ -516,6 +514,14 @@ export class Arcon extends BaseClient {
 
           this.emit('playerUpdated', existingPlayer, changes);
         }
+      }
+    }
+
+    // Remove stale player data
+    for (const player of this.players.values()) {
+      if (!players.some((p) => p[4] === player.guid)) {
+        this.players.delete(player.id);
+        this.emit('playerDisconnected', player, 'disconnected');
       }
     }
 

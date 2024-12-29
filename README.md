@@ -1,4 +1,4 @@
-# ARCON.js [![](https://img.shields.io/npm/v/arcon.js?maxAge=3600)](https://npmjs.com/package/arcon.js) [![install size](https://packagephobia.com/badge?p=arcon.js)](https://packagephobia.com/result?p=arcon.js) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Tests](https://github.com/C4GDevs/ARCON.js/actions/workflows/test.yml/badge.svg?branch=v5.x&event=push)](https://github.com/C4GDevs/ARCON.js/actions/workflows/test.yml)
+# ARCON.js [![](https://img.shields.io/npm/v/arcon.js?maxAge=3600)](https://npmjs.com/package/arcon.js) [![install size](https://packagephobia.com/badge?p=arcon.js)](https://packagephobia.com/result?p=arcon.js) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT) [![Tests](https://github.com/C4GDevs/ARCON.js/actions/workflows/test.yml/badge.svg?branch=master&event=push)](https://github.com/C4GDevs/ARCON.js/actions/workflows/test.yml)
 
 ARCON.js is a lightweight, event-based RCON client for Arma III servers designed to be reliable and easy to use.
 
@@ -34,7 +34,7 @@ connection.connect();
 
 ### Events
 
-Being an event-based library, there are multiple events that you can subscribe to. A list of all events can be found [here](https://github.com/C4GDevs/ARCON.js/blob/v5.x/src/Arcon/index.ts#L29).
+Being an event-based library, there are multiple events that you can subscribe to. A list of all events can be found [here](https://github.com/C4GDevs/ARCON.js/blob/master/src/Arcon/index.ts#L45).
 Note that if you do not add a listener to the `error` event, your application will crash if an error is ever created.
 
 ```ts
@@ -93,6 +93,10 @@ connection.on('playerMessage', (player: Player, channel: string, message: string
 
 connection.on('adminMessage', (id: number, channel: string, message: string) => {
   console.log(id, channel, message);
+});
+
+connection.on('console', (data: String) => {
+  console.log(data);
 });
 
 connection.connect();
