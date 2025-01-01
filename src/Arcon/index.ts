@@ -453,7 +453,7 @@ export class Arcon extends BaseClient {
 
     const player = this._players.get(id);
 
-    if (!player) this.emit('error', new ArconError(`beLog: Player #${id} not found.`, data));
+    // if (!player) this.emit('error', new ArconError(`beLog: Player #${id} not found.`, data));
 
     const filter = parseInt(filterStr);
 
@@ -520,6 +520,10 @@ export class Arcon extends BaseClient {
     // Remove stale player data
     for (const player of this.players.values()) {
       if (!players.some((p) => p[4] === player.guid)) {
+        console.warn(
+          `[${new Date().toLocaleString()}] Removing stale player: ${player.id} ${player.name} ${player.guid}`,
+        );
+
         this.players.delete(player.id);
         this.emit('playerDisconnected', player, 'disconnected');
       }
