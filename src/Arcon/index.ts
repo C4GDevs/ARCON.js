@@ -72,6 +72,7 @@ export class Arcon extends BaseClient {
   private _packetParts: CommandPacketPart[] = [];
   private _waitingForCommandResponse = false;
   private _pendingCommandPacket: Packet | null = null;
+  private _stalePlayerCounter = new Map<string, number>();
 
   constructor(options: ArconOptions) {
     super(options);
@@ -335,6 +336,9 @@ export class Arcon extends BaseClient {
     const connectingPlayer = this._connectingPlayers.get(id);
     const player = this._players.get(id);
 
+    // Clear from stale players
+    this._stalePlayerCounter.delete(guid);
+
     if (!connectingPlayer && !player) {
       // Will be picked up by playerlist
       // this.emit('error', new ArconError(`playerGuidVerified: Player #${id} not found.`, data));
@@ -483,6 +487,11 @@ export class Arcon extends BaseClient {
       const existingPlayer = this._players.get(id);
       const connectingPlayer = this._connectingPlayers.get(id);
 
+      // Clear stale counter
+      if (guid !== '-') {
+        this._stalePlayerCounter.delete(guid);
+      }
+
       // If verified, add player early
       if (!existingPlayer && verified && guid !== '-') {
         const newPlayer = new Player(guid, id, ip, name, ping, lobby, verified);
@@ -520,12 +529,19 @@ export class Arcon extends BaseClient {
     // Remove stale player data
     for (const player of this.players.values()) {
       if (!players.some((p) => p[4] === player.guid)) {
-        console.warn(
-          `[${new Date().toLocaleString()}] Removing stale player: ${player.id} ${player.name} ${player.guid}`,
-        );
+        const counter = this._stalePlayerCounter.get(player.guid);
 
-        this.players.delete(player.id);
-        this.emit('playerDisconnected', player, 'disconnected');
+        if (counter && counter >= 5) {
+          console.warn(
+            `[${new Date().toLocaleString()}] Removing stale player: ${player.id} ${player.name} ${player.guid}`,
+          );
+
+          this.players.delete(player.id);
+          this._stalePlayerCounter.delete(player.guid);
+          this.emit('playerDisconnected', player, 'disconnected');
+        } else {
+          this._stalePlayerCounter.set(player.guid, (counter || 0) + 1);
+        }
       }
     }
 
