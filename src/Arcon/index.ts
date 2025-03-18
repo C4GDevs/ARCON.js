@@ -310,8 +310,6 @@ export class Arcon extends BaseClient {
     }
 
     if (!connectingPlayer) {
-      // Will be picked up by playerlist
-      // this.emit('error', new ArconError(`playerGuidCalculated: Player #${id} not found.`, data));
       return;
     }
 
@@ -339,11 +337,8 @@ export class Arcon extends BaseClient {
     // Clear from stale players
     this._stalePlayerCounter.delete(guid);
 
-    if (!connectingPlayer && !player) {
-      // Will be picked up by playerlist
-      // this.emit('error', new ArconError(`playerGuidVerified: Player #${id} not found.`, data));
-      return;
-    }
+    // Will be picked up by playerlist
+    if (!connectingPlayer && !player) return;
 
     // If connecting, always overwrite
     if (connectingPlayer) {
@@ -431,7 +426,6 @@ export class Arcon extends BaseClient {
         return;
       }
 
-      this.emit('error', new ArconError(`playerKicked: Player #${id} not found.`, data));
       return;
     }
 
@@ -456,8 +450,6 @@ export class Arcon extends BaseClient {
     const id = parseInt(idStr);
 
     const player = this._players.get(id);
-
-    // if (!player) this.emit('error', new ArconError(`beLog: Player #${id} not found.`, data));
 
     const filter = parseInt(filterStr);
 
@@ -532,10 +524,6 @@ export class Arcon extends BaseClient {
         const counter = this._stalePlayerCounter.get(player.guid);
 
         if (counter && counter >= 5) {
-          console.warn(
-            `[${new Date().toLocaleString()}] Removing stale player: ${player.id} ${player.name} ${player.guid}`,
-          );
-
           this.players.delete(player.id);
           this._stalePlayerCounter.delete(player.guid);
           this.emit('playerDisconnected', player, 'disconnected');
