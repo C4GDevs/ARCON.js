@@ -47,6 +47,7 @@ export class BaseClient extends EventEmitter {
 
   private _lastCommandPacketSentAt: Date | null = null;
   private _lastCommandPacketReceivedAt: Date | null = null;
+  private _connectedAt: Date | null = null;
 
   // Connection state
   private _socket: Socket | null = null;
@@ -106,6 +107,7 @@ export class BaseClient extends EventEmitter {
     this._sequenceCache.clear();
     this._lastCommandPacketSentAt = null;
     this._lastCommandPacketReceivedAt = null;
+    this._connectedAt = null;
 
     // Reset timeouts
     this._clearTimeout('login');
@@ -189,6 +191,7 @@ export class BaseClient extends EventEmitter {
       return;
     }
 
+    this._connectedAt = new Date();
     this._state = ConnectionState.CONNECTED;
     this.emit('connected');
 
@@ -251,7 +254,6 @@ export class BaseClient extends EventEmitter {
     }
 
     const now = new Date();
-    const lastCommandDiff = now.getTime() - this._lastCommandPacketSentAt.getTime();
 
     // If a command takes longer than 15 seconds to respond, connection is dead.
     if (this._lastCommandPacketReceivedAt) {
@@ -259,10 +261,22 @@ export class BaseClient extends EventEmitter {
         this._lastCommandPacketSentAt.getTime() - this._lastCommandPacketReceivedAt.getTime();
 
       if (lastCommandReceivedDiff > 15_000) {
-        this.close('Connection timed out.');
+        this.close('Connection timed out. Command took too long to respond.');
         return;
       }
     }
+
+    // If a packet has never been received 30 seconds after connecting, connection is dead
+    if (!this._lastCommandPacketReceivedAt && this._connectedAt) {
+      const timeSinceConnect = now.getTime() - this._connectedAt.getTime();
+
+      if (timeSinceConnect > 30_000) {
+        this.close('Connection timed out. No packet received after first connect.');
+        return;
+      }
+    }
+
+    const lastCommandDiff = now.getTime() - this._lastCommandPacketSentAt.getTime();
 
     // Send a heartbeat every 20 seconds.
     if (lastCommandDiff > 20_000) {
