@@ -19,6 +19,7 @@ An RCON connection can be established by instantiating the `Arcon` class and cal
 | password             | The password of the RCON server.                                                | string | true     |         |
 | autoReconnect        | Whether to automatically reconnect on disconnects. Excludes incorrect password. | bool   | false    | true    |
 | playerUpdateInterval | Time (in ms) between sending a `players` command to the server.                 | number | false    | 5000    |
+| ignoreBeLogs         | Whether to ignore BattlEye log output in the emitted console event              | bool   | false    | false   |
 
 ```ts
 import { Arcon } from 'arcon.js';
@@ -71,7 +72,7 @@ connection.on('playerConnected', (player: Player) => {
 });
 
 connection.on('playerDisconnected', (player: Player, reason: string) => {
-  // If a player disconnects by themself, reason is "disconnected".
+  // If a player disconnects by themselves, reason is "disconnected".
   // Otherwise it will be parsed from text.
   console.log(player, reason);
 });
@@ -92,6 +93,10 @@ connection.on('playerMessage', (player: Player, channel: string, message: string
 });
 
 connection.on('adminMessage', (id: number, channel: string, message: string) => {
+  console.log(id, channel, message);
+});
+
+connection.on('serverMessage', (message: string) => {
   console.log(id, channel, message);
 });
 
