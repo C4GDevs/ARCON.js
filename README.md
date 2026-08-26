@@ -97,7 +97,7 @@ connection.on('adminMessage', (id: number, channel: string, message: string) => 
 });
 
 connection.on('serverMessage', (message: string) => {
-  console.log(channel);
+  console.log(message);
 });
 
 connection.on('console', (data: String) => {
