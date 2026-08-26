@@ -32,16 +32,23 @@ const MESSAGE_FORMATS = {
   playerKicked: /^Player #(\d+) (.*) \((?:[a-z0-9]{32}|-)\) has been kicked by BattlEye: (.+)$/,
   beLog: /^([a-zA-Z ]+) Log: #(\d+) (.*) \(([a-z0-9]{32})\) - #(\d+) (.+)$/s,
   playerMessage: /^\(([a-zA-Z]+)\) (.+)$/,
-  adminMessage: /RCon admin #(\d+): \((.+?)\) (.+)$/,
-  banCheckTimeout: /Ban check timed out, no response from BE Master/,
-  masterQueryTimeout: /Master query timed out, no response from BE Master/,
-  connectedToBeMaster: /Connected to BE Master/,
-  disconnectedFromBeMaster: /Disconnected from BE Master/,
-  connectionFailedBeMaster: /Could not connect to BE Master/,
-  beMasterFailedToReceive: /Failed to receive from BE Master \(.+\)/,
-  unknownCommand: /Unknown command/,
-  filterKickDisabled: /Warning: Disabled kicking for (.+) scans. (.+)/i,
-  eventLogError: /Failed to open event log file/,
+  adminMessage: /^RCon admin #(\d+): \((.+?)\) (.+)$/,
+  banCheckTimeout: /^Ban check timed out, no response from BE Master/,
+  masterQueryTimeout: /^Master query timed out, no response from BE Master/,
+  connectedToBeMaster: /^Connected to BE Master/,
+  disconnectedFromBeMaster: /^Disconnected from BE Master/,
+  connectionFailedBeMaster: /^Could not connect to BE Master/,
+  beMasterFailedToReceive: /^Failed to receive from BE Master \(.+\)/,
+  unknownCommand: /^Unknown command/,
+  filterKickDisabled: /^Warning: Disabled kicking for (.+) scans. (.+)/i,
+  eventLogError: /^Failed to open event log file/,
+
+  serverPlayerModifiedData: /^(.+) uses modified data file/,
+  serverAdminKick: /^Player (.+) kicked off by BattlEye: Admin Kick \((.+)\)/,
+  serverPlayerKickedBe: /^Player (.+) kicked off by BattlEye: (.+)/,
+  serverPlayerKicked: /^Player (.+) kicked off: (.+)/,
+  serverFilesNotSigned: /^Files (.+?)(?: are .*)?$/,
+  serverSignatureTimeout: /^Player (.+): Signature check timed out/,
 
   // Command responses
   playerList:
@@ -273,6 +280,15 @@ export class Arcon extends BaseClient {
 
       case 'eventLogError':
         this.emit('error', new ArconError(data));
+        break;
+
+      case 'serverPlayerModifiedData':
+      case 'serverAdminKick':
+      case 'serverPlayerKickedBe':
+      case 'serverPlayerKicked':
+      case 'serverFilesNotSigned':
+      case 'serverSignatureTimeout':
+        this.emit('serverMessage', data);
         break;
 
       case 'masterQueryTimeout':
