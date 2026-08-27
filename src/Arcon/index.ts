@@ -46,7 +46,7 @@ const MESSAGE_FORMATS = {
   serverPlayerModifiedData: /^(.+) uses modified data file/,
   serverAdminKick: /^Player (.*) kicked off by BattlEye: Admin Kick(?: \((.*)\))?/,
   serverPlayerKickedBe: /^Player (.*) kicked off by BattlEye: (.*)/,
-  serverPlayerKicked: /^Player (.*) kicked off[:,] (.*)/,
+  serverPlayerKicked: /^Player (.*) kicked off(?::|,| -) (.*)/,
   serverFilesNotSigned: /^Files (.+?)(?: are .*)?$/,
   serverSignatureTimeout: /^Player (.*): Signature check timed out/,
   serverLoad: /^Server load: (.+)/,
