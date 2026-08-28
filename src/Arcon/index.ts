@@ -43,12 +43,13 @@ const MESSAGE_FORMATS = {
   filterKickDisabled: /^Warning: Disabled kicking for (.+) scans. (.+)/i,
   eventLogError: /^Failed to open event log file/,
 
-  serverPlayerModifiedData: /^(.+) uses modified data file/,
+  serverPlayerModifiedData: /^(.*) uses modified data file/,
   serverAdminKick: /^Player (.*) kicked off by BattlEye: Admin Kick(?: \((.*)\))?/,
   serverPlayerKickedBe: /^Player (.*) kicked off by BattlEye: (.*)/,
   serverPlayerKicked: /^Player (.*) kicked off(?::|,| -) (.*)/,
   serverFilesNotSigned: /^Files (.+?)(?: are .*)?$/,
   serverSignatureTimeout: /^Player (.*): Signature check timed out/,
+  serverSignatureWrong: /^Player (.*): Wrong signature for file (.+)/,
   serverLoad: /^Server load: (.+)/,
   serverPlayerDownloadable: /^You cannot play\/edit this mission/,
   serverPlayerNetwork: /^Player's network does not meet server's speed requirements/,
@@ -291,6 +292,7 @@ export class Arcon extends BaseClient {
       case 'serverPlayerKicked':
       case 'serverFilesNotSigned':
       case 'serverSignatureTimeout':
+      case 'serverSignatureWrong':
       case 'serverLoad':
       case 'serverPlayerDownloadable':
       case 'serverPlayerNetwork':
